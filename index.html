@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gestão de Férias</title>
+<meta name="theme-color" content="#173f1e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700;800&display=swap">
+<script>
+/* ===================== CONFIGURAÇÃO ===================== *
+ * Cole aqui os dois valores do Supabase:
+ * Project Settings → API → Project URL e anon public key.
+ * A chave "anon" é pública por natureza: quem protege os dados
+ * são as regras do banco (RLS). Nunca cole a "service_role".
+ * ======================================================== */
+window.APP_CONFIG = {
+  supabaseUrl: "https://ebtyvvlmitcbsqjtrpyx.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidHl2dmxtaXRjYnNxanRycHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzMzMwOTcsImV4cCI6MjEwODkwOTA5N30.09u4fzbtILi1eLQ6ojJ2QdF2Ehwblae2aZOSRZKa8N8",
+  nomeProduto: "Gestão de Férias",
+  desenvolvedor: "Leonardo Valdez"
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+/* Identidade: a fachada verde da Croissant. Cada tela abre com um "toldo" verde-floresta com o título;
+   o conteúdo sobe por cima em painéis claros. Amarelo-mostarda só para o que é ação ou destaque. */
+:root{
+  --forest:#173f1e; --green:#246b30; --green-2:#3a8a45; --green-soft:#e2efdf; --green-ink:#10301a;
+  --yellow:#f2cf3a; --yellow-soft:#fbf1c2; --yellow-ink:#3d3200;
+  --bg:#edf2ea; --surface:#ffffff; --surface-2:#f5f8f3; --ink:#15251a; --muted:#56665a; --line:#d5dfd1;
+  --crit:#b3261e; --crit-soft:#fbe1dd; --high:#a85200; --high-soft:#fde7cf; --att:#6f5b00; --att-soft:#faf0bd; --info:#245887; --info-soft:#dfeaf6;
+  --font-h:"Bricolage Grotesque","Nunito",system-ui,-apple-system,"Segoe UI",sans-serif; --font:"Figtree","Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.5;padding-top:env(safe-area-inset-top,0px);-webkit-font-smoothing:antialiased}
+a{color:var(--green)}
+h1,h2,h3{font-family:var(--font-h);margin:0;line-height:1.1;text-wrap:balance}
+h1{font-size:34px;font-weight:800;letter-spacing:-.02em;color:var(--green-ink)}
+h2{font-size:19px;font-weight:700;letter-spacing:-.01em}
+h3{font-size:14px;font-weight:700;color:var(--muted)}
+.muted{color:var(--muted)} .small{font-size:13px} .num{font-variant-numeric:tabular-nums}
+/* ---------- estrutura ---------- */
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+.side{background:var(--forest);color:#fff;padding:20px 14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;overflow:auto}
+.side .logo{background:#fff;border-radius:12px;padding:7px;box-shadow:0 0 0 3px var(--yellow)}
+.side .logo img{width:100%;display:block}
+.side nav{display:flex;flex-direction:column;gap:3px}
+.side nav a,.mnav a{color:#dcebd9;text-decoration:none;font-weight:600;padding:10px 12px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:background .15s}
+.side nav a[aria-current="page"],.mnav a[aria-current="page"]{background:var(--yellow);color:var(--yellow-ink);font-weight:800}
+.side nav a:hover{background:rgba(255,255,255,.1)}
+.side nav a[aria-current="page"]:hover{background:var(--yellow)}
+.badge{background:var(--crit);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;font-weight:800;font-variant-numeric:tabular-nums}
+.side .foot{margin-top:auto;font-size:12px;color:#b8d2b5;line-height:1.6}
+.side .foot .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+.top{display:none}
+main{padding:0 max(20px,env(safe-area-inset-right,0px)) 40px max(20px,env(safe-area-inset-left,0px));min-width:0}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+/* o toldo: o cabeçalho de cada tela */
+.wrap>.head:first-child{background:var(--forest);color:#fff;margin:0 calc(-1 * max(20px,env(safe-area-inset-left,0px)));padding:30px max(28px,env(safe-area-inset-left,0px)) 34px;border-radius:0 0 28px 28px;position:relative;overflow:hidden;align-items:flex-end}
+.wrap>.head:first-child::after{content:"";position:absolute;right:-60px;top:-90px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(242,207,58,.28),rgba(242,207,58,0) 70%);pointer-events:none}
+.wrap>.head:first-child>*{position:relative;z-index:1}
+.wrap>.head:first-child h1{color:#fff}
+.wrap>.head:first-child .muted{color:#b8d2b5}
+.wrap>.head:first-child .btn{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.3)}
+.wrap>.head:first-child .btn:hover{background:rgba(255,255,255,.18);border-color:#fff}
+.wrap>.head:first-child .btn.pri{background:var(--yellow);color:var(--yellow-ink);border-color:var(--yellow)}
+.wrap>.head:first-child select{background:#fff}
+.hero-frase{margin:10px 0 0;font-family:var(--font-h);font-size:20px;font-weight:500;color:#dcebd9;max-width:46ch;line-height:1.3}
+.hero-frase b{color:var(--yellow);font-weight:800}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel>h2,.panel .head h2{margin-bottom:10px}
+/* indicadores */
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;cursor:default;display:grid;gap:2px;align-content:start}
+.kpi .l{font-size:13px;font-weight:600;color:var(--muted)}
+.kpi .v{font-family:var(--font-h);font-size:40px;font-weight:800;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--green-ink);margin-top:4px}
+.kpi .d{font-size:12px;color:var(--muted)}
+.kpi.kc-crit{background:var(--crit-soft);border-color:#f2c3bc} .kpi.kc-crit .v{color:var(--crit)}
+.kpi.kc-high{background:var(--high-soft);border-color:#f5cfa3} .kpi.kc-high .v{color:var(--high)}
+.kpi.kc-att{background:var(--att-soft);border-color:#ecdc8f} .kpi.kc-att .v{color:var(--att)}
+.kpi.kc-info .v{color:var(--info)}
+.kpi.zero{background:var(--surface);border-color:var(--line)} .kpi.zero .v{color:#a4b3a6}
+/* botões e campos */
+.btn{font:700 14px var(--font);border-radius:10px;padding:9px 15px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;min-height:40px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;transition:background .15s,border-color .15s}
+.btn:hover{border-color:var(--green-2)}
+.btn.pri{background:var(--green);border-color:var(--green);color:#fff}
+.btn.pri:hover{background:var(--forest)}
+.btn.yel{background:var(--yellow);border-color:#d9b81f;color:var(--yellow-ink)}
+.btn.warn{color:var(--crit);border-color:#e7a59d}
+.btn.sm{min-height:32px;padding:5px 11px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:focus-visible,a:focus-visible,tr.click:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+label.f{display:grid;gap:5px;font-size:13px;font-weight:700;color:var(--ink);min-width:0}
+label.f.inline{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+input,select,textarea{font:15px var(--font);color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 11px;width:100%;min-width:0}
+input:hover,select:hover,textarea:hover{border-color:#b9c9b5}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--green)}
+textarea{min-height:70px;resize:vertical}
+/* tabelas */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;font-weight:700;color:var(--muted);background:var(--surface-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--green-soft)}
+.panel.scroll{padding:0}
+.pill{display:inline-block;font:700 12px var(--font);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.p-ok{background:var(--green-soft);color:var(--green-ink)} .p-crit{background:var(--crit-soft);color:var(--crit)} .p-high{background:var(--high-soft);color:var(--high)} .p-att{background:var(--att-soft);color:var(--att)} .p-info{background:var(--info-soft);color:var(--info)} .p-mute{background:#e9eeea;color:#56606a}
+/* alertas: a faixa colorida diz a gravidade */
+.alert{border-radius:var(--r);border:1px solid var(--line);background:var(--surface);padding:14px 16px 14px 20px;display:grid;gap:5px;position:relative;overflow:hidden}
+.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--ac,var(--line))}
+.a-critico{--ac:var(--crit)} .a-alto{--ac:var(--high)} .a-atencao{--ac:#c9a800} .a-info{--ac:var(--info)}
+.alert>.row:first-child b{font-family:var(--font-h);font-size:16px;font-weight:700}
+.list{display:grid;gap:10px}
+.grid2{display:grid;gap:16px;grid-template-columns:1fr 1fr} @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.msg{border-radius:12px;padding:11px 14px;font-size:14px}
+.msg.err{background:var(--crit-soft);color:#8e1d16} .msg.warn{background:var(--high-soft);color:#6f3500} .msg.ok{background:var(--green-soft);color:var(--green-ink)} .msg.info{background:var(--info-soft);color:#173f66}
+.msg ul{margin:4px 0 0;padding-left:18px}
+/* janelas */
+.modal-bg{position:fixed;inset:0;background:rgba(14,36,18,.55);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;animation:fundo .18s ease-out}
+.modal{background:var(--bg);border-radius:20px;width:100%;max-width:660px;max-height:92vh;overflow:auto;padding:22px;display:grid;gap:12px;box-shadow:0 24px 60px rgba(10,30,14,.35);animation:sobe .22s ease-out}
+.modal>h2:first-child,.modal>.head:first-child h2{font-size:24px}
+.modal .foot{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;position:sticky;bottom:-22px;background:var(--bg);padding:12px 0}
+@keyframes fundo{from{opacity:0}} @keyframes sobe{from{opacity:0;transform:translateY(14px)}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--forest);color:#fff;padding:11px 18px;border-radius:12px;z-index:80;max-width:calc(100% - 32px);font-weight:600;box-shadow:0 10px 30px rgba(10,30,14,.3);border-left:5px solid var(--yellow)}
+.toast.err{background:var(--crit);border-left-color:#fff}
+.fbox{margin:0}.fbox>summary{cursor:pointer;font-weight:700;color:var(--green-ink);padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;list-style-position:inside}.fbox[open]>summary{margin-bottom:10px}@media(min-width:900px){.fbox>summary{display:none}}
+body.ocupado{cursor:progress}body.ocupado .modal button[type=submit],body.ocupado .modal .btn.pri{opacity:.55;pointer-events:none}
+/* entrada */
+.auth{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.auth-hero{background:var(--forest);color:#fff;padding:56px 64px;display:flex;flex-direction:column;justify-content:center;gap:22px;position:relative;overflow:hidden}
+.auth-hero::after{content:"";position:absolute;right:-140px;bottom:-140px;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(242,207,58,.3),rgba(242,207,58,0) 70%)}
+.auth-logo{background:#fff;border-radius:18px;padding:10px;max-width:400px;box-shadow:0 0 0 4px var(--yellow);position:relative;z-index:1}
+.auth-logo img{width:100%;display:block}
+.auth-frase{font-family:var(--font-h);font-size:44px;font-weight:800;line-height:1.05;letter-spacing:-.025em;margin:12px 0 0;max-width:15ch;position:relative;z-index:1}
+.auth-sub{font-size:18px;color:#cfe3cc;margin:0;max-width:34ch;position:relative;z-index:1}
+.auth .card{align-self:center;justify-self:center;background:#fff;border-radius:22px;border:1px solid var(--line);padding:30px;width:calc(100% - 40px);max-width:430px;display:grid;gap:14px;box-shadow:0 20px 50px rgba(20,60,25,.12);margin:24px 0}
+.auth .card h1{font-size:30px}
+.auth-logo-m{display:none}
+.credit{text-align:center;font-size:12px;color:var(--muted)}
+/* calendário */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.cal .dw{font-size:12px;font-weight:700;color:var(--muted);text-align:center}
+.cal .d{background:#fff;border:1px solid var(--line);border-radius:10px;min-height:88px;padding:5px;display:grid;align-content:start;gap:2px;font-size:12px;min-width:0}
+.cal .d.out{opacity:.35;background:transparent;border-style:dashed} .cal .d.today{border:2px solid var(--green);box-shadow:inset 0 0 0 2px var(--green-soft)} .cal .d.hol{background:var(--yellow-soft);border-color:#ecd77a}
+.cal .d b{font-size:13px;font-family:var(--font-h)}
+.chip{background:var(--green);color:#fff;border-radius:6px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;font-weight:600}
+/* estrutura */
+.tree ul{list-style:none;margin:0;padding-left:22px;border-left:2px solid var(--line)}
+.tree>ul{padding-left:0;border:0}
+.tree li{margin:7px 0}
+.tree .node{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.tree>ul>li>.node{background:var(--green-soft);border-color:#c3dbbf}
+.tree>ul>li>.node b{font-family:var(--font-h);font-size:16px}
+.tree .node.inat{opacity:.55}
+/* barras */
+.bars{display:grid;gap:7px}
+.bar{display:grid;grid-template-columns:minmax(0,150px) 1fr 44px;gap:10px;align-items:center;font-size:13px}
+.bar .t{height:16px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+.bar .t i{display:block;height:100%;background:var(--green-2);border-radius:999px}
+.bar .c{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.footer{text-align:center;font-size:12px;color:var(--muted);padding:22px 0 4px}
+@media(max-width:860px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .top{display:flex;position:sticky;top:0;z-index:20;background:var(--forest);color:#fff;padding:10px max(16px,env(safe-area-inset-left,0px)) 8px;flex-direction:column;gap:8px}
+  .top .row1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .top .row1 img{height:36px;background:#fff;border-radius:8px;padding:2px;box-shadow:0 0 0 2px var(--yellow)}
+  .top .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.35)}
+  .top>*{min-width:0}
+  .mnav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;max-width:100%}
+  .mnav::-webkit-scrollbar{display:none}
+  .mnav a{flex:0 0 auto;padding:7px 12px;font-size:14px;border-radius:999px}
+  main{padding:0 max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+  .wrap>.head:first-child{margin:0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:22px max(18px,env(safe-area-inset-left,0px)) 26px;border-radius:0 0 22px 22px}
+  h1{font-size:28px}
+  .hero-frase{font-size:17px}
+  .kpi .v{font-size:32px}
+  .auth{grid-template-columns:minmax(0,1fr);background:var(--forest);align-content:start}
+  .auth-hero{padding:28px 22px 8px;gap:10px}
+  .auth-hero::after{display:none}
+  .auth-logo{max-width:300px}
+  .auth-frase{font-size:30px;margin-top:6px}
+  .auth-sub{font-size:15px}
+  .auth .card{margin:18px 0 28px;padding:22px}
+}
+@media print{.side,.top,.btn{display:none!important}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="root"><div class="auth"><p class="muted">Carregando…</p></div></div>
+<script>/* =====================================================================
+   Motor de férias — regras da CLT (sem interface).
+   Datas sempre em texto ISO "AAAA-MM-DD". Funções puras: o mesmo
+   resultado no navegador e nos testes (Node).
+   Referências: CLT arts. 130, 131, 133, 134, 135, 137, 139, 143, 145.
+   ===================================================================== */
+(function (root) {
+  "use strict";
+
+  // ---------- datas ----------
+  const D = s => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+  const S = dt => dt.toISOString().slice(0, 10);
+  const addDays = (s, n) => { const d = D(s); d.setUTCDate(d.getUTCDate() + n); return S(d); };
+  const addYears = (s, n) => {
+    const [y, m, d] = s.split("-").map(Number);
+    const ny = y + n; const last = new Date(Date.UTC(ny, m, 0)).getUTCDate();
+    return `${ny}-${String(m).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+  };
+  const diff = (a, b) => Math.round((D(b) - D(a)) / 864e5);            // b - a, em dias
+  const weekday = s => D(s).getUTCDay();
+  const overlap = (a1, a2, b1, b2) => { const i = a1 > b1 ? a1 : b1, f = a2 < b2 ? a2 : b2; return i <= f ? diff(i, f) + 1 : 0; };
+  const fmt = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "";
+
+  // ---------- configuração padrão (editável por empresa) ----------
+  const CONFIG_PADRAO = {
+    dsr: [0],                    // dias de repouso semanal (0 = domingo)
+    diasAvisoLegal: 30,          // CLT art. 135
+    antecedenciaProgramar: 90,   // alerta "programar férias" começa X dias antes do último dia para avisar
+    antecedenciaAviso: 15,       // alerta "avisar colaborador" começa X dias antes do prazo de aviso
+    antecedenciaSaida: 30,       // lista "vai sair de férias" nos próximos X dias
+    antecedenciaPagamento: 7,    // alerta "pagamento" X dias antes do prazo do art. 145
+    maxAusenciaPct: 0.3,         // cobertura: máximo da equipe ausente ao mesmo tempo
+  };
+
+  // ---------- R02: dias de direito pelas faltas (art. 130) ----------
+  function diasPorFaltas(faltas) {
+    if (faltas <= 5) return 30;
+    if (faltas <= 14) return 24;
+    if (faltas <= 23) return 18;
+    if (faltas <= 32) return 12;
+    return 0;
+  }
+
+  const ATIVOS = p => p.status !== "cancelada";
+  const statusProg = (p, hoje) => p.status === "cancelada" ? "cancelada" : p.fim < hoje ? "realizada" : p.inicio <= hoje ? "em_gozo" : "programada";
+
+  // ---------- R01, R04, R13, R14: períodos do colaborador ----------
+  function calcularPeriodos(colab, ausencias, programacoes, hoje) {
+    const out = [];
+    if (!colab || !colab.admissao) return out;
+    const limite = colab.desligamento && colab.desligamento < hoje ? colab.desligamento : hoje;
+    const progs = (programacoes || []).filter(ATIVOS);
+    const aus = ausencias || [];
+    for (let k = 0; k < 80; k++) {
+      const ini = addYears(colab.admissao, k);
+      if (ini > limite) break;
+      const fimAq = addDays(addYears(colab.admissao, k + 1), -1);
+      const fimConc = addDays(addYears(colab.admissao, k + 2), -1);
+      const range = (a) => overlap(ini, fimAq, a.inicio, a.fim || a.inicio);
+      const faltas = aus.filter(a => a.tipo === "falta").reduce((t, a) => t + range(a), 0);
+      const licRem = aus.filter(a => a.tipo === "licenca_remunerada").reduce((t, a) => t + range(a), 0);
+      const inss = aus.filter(a => a.tipo === "inss").reduce((t, a) => t + range(a), 0);
+      const direito = diasPorFaltas(faltas);
+      const meus = progs.filter(p => p.periodo === ini);
+      const usados = meus.reduce((t, p) => t + (+p.dias || 0) + (+p.abono || 0), 0);
+      const gozados = meus.filter(p => p.fim < hoje).reduce((t, p) => t + (+p.dias || 0) + (+p.abono || 0), 0);
+      const quitadoManual = colab.ferias_quitadas_ate && fimAq <= colab.ferias_quitadas_ate;
+      const saldo = quitadoManual ? 0 : Math.max(0, direito - usados);
+      const validar = [];
+      if (licRem > 30) validar.push(`Licença remunerada de ${licRem} dias no período: pode haver perda do direito e novo período aquisitivo (CLT art. 133, II). Validar com o departamento pessoal.`);
+      if (inss > 180) validar.push(`${inss} dias de afastamento previdenciário no período: pode haver perda do direito (CLT art. 133, IV). Validar com o departamento pessoal.`);
+      if (faltas > 32) validar.push(`${faltas} faltas injustificadas: sem direito a férias neste período (CLT art. 130).`);
+      let status;
+      if (fimAq >= hoje) status = "em_aquisicao";
+      else if (quitadoManual || (direito > 0 && saldo === 0 && gozados >= usados)) status = "quitado";
+      else if (direito > 0 && saldo === 0) status = "programado";     // tudo marcado, mas ainda não gozado
+      else if (direito === 0) status = "sem_direito";
+      else if (fimConc < hoje) status = "vencido";
+      else status = "a_vencer";
+      const naoProgramado = status === "a_vencer" || status === "vencido" ? saldo : 0;
+      const limiteInicio = naoProgramado ? addDays(fimConc, -naoProgramado + 1) : null;
+      const limiteAviso = limiteInicio ? addDays(limiteInicio, -CONFIG_PADRAO.diasAvisoLegal) : null;
+      out.push({ n: k + 1, aquisitivoInicio: ini, aquisitivoFim: fimAq, concessivoInicio: addDays(fimAq, 1), concessivoFim: fimConc,
+        faltas, licencaRemunerada: licRem, afastamentoInss: inss, direito, usados, gozados, saldo, quitadoManual: !!quitadoManual,
+        status, validar, limiteInicio, limiteAviso, programacoes: meus.map(p => p.id) });
+    }
+    return out;
+  }
+
+  // ---------- R06: início proibido nos 2 dias antes de feriado ou DSR (art. 134 §3º) ----------
+  function inicioProibido(data, feriados, cfg) {
+    const dsr = (cfg && cfg.dsr) || CONFIG_PADRAO.dsr;
+    const set = new Set(feriados || []);
+    for (const k of [1, 2]) { const d = addDays(data, k); if (set.has(d) || dsr.includes(weekday(d))) return d; }
+    return null;
+  }
+
+  // ---------- validação de uma programação (R05, R06, R07, R09, R11) ----------
+  // Retorna { erros: [...] que bloqueiam, avisos: [...] que exigem justificativa }
+  function validarProgramacao(prog, ctx) {
+    const { colab, periodos, programacoes, feriados, hoje } = ctx; const cfg = Object.assign({}, CONFIG_PADRAO, ctx.config || {});
+    const erros = [], avisos = [];
+    const dias = +prog.dias || 0, abono = +prog.abono || 0;
+    if (!prog.inicio) erros.push("Informe a data de início.");
+    if (dias < 1) erros.push("Informe a quantidade de dias.");
+    const per = periodos.find(p => p.aquisitivoInicio === prog.periodo);
+    if (!per) { erros.push("Escolha o período aquisitivo."); return { erros, avisos }; }
+    if (erros.length) return { erros, avisos };
+    const fim = addDays(prog.inicio, dias - 1);
+    if (per.direito === 0) erros.push("Este período não dá direito a férias (CLT art. 130).");
+    const outras = (programacoes || []).filter(p => ATIVOS(p) && p.id !== prog.id);
+    const doPeriodo = outras.filter(p => p.periodo === prog.periodo);
+    const usados = doPeriodo.reduce((t, p) => t + (+p.dias || 0) + (+p.abono || 0), 0);
+    const disponivel = per.direito - usados;
+    if (dias + abono > disponivel) erros.push(`Saldo insuficiente: ${disponivel} dias disponíveis neste período.`);
+    // abono: até 1/3 (art. 143)
+    if (abono > Math.floor(per.direito / 3)) erros.push(`Abono pecuniário limitado a ${Math.floor(per.direito / 3)} dias (1/3 do período, CLT art. 143).`);
+    if (abono > 0 && doPeriodo.some(p => +p.abono > 0)) erros.push("O abono deste período já foi registrado.");
+    // sobreposição com outras férias do colaborador
+    for (const p of outras) if (overlap(prog.inicio, fim, p.inicio, p.fim)) erros.push(`Conflita com férias já registradas de ${fmt(p.inicio)} a ${fmt(p.fim)}.`);
+    // fracionamento (art. 134 §1º)
+    const partes = doPeriodo.map(p => +p.dias).concat([dias]);
+    const restante = per.direito - usados - dias - abono;
+    if (partes.length > 3) erros.push("Máximo de 3 períodos de gozo por período aquisitivo (CLT art. 134, §1º).");
+    if (per.direito - abono >= 14) {
+      if (partes.some(x => x < 5)) erros.push("Cada parte das férias deve ter no mínimo 5 dias corridos (CLT art. 134, §1º).");
+      const tem14 = partes.some(x => x >= 14);
+      const vagas = 3 - partes.length;
+      if (!tem14 && (restante < 14 || vagas < 1)) erros.push("Uma das partes precisa ter no mínimo 14 dias corridos (CLT art. 134, §1º).");
+      if (restante > 0 && restante < 5 && vagas >= 0) erros.push(`Sobrariam ${restante} dia(s), menos que o mínimo de 5 para uma parte.`);
+    } else if (partes.length > 1 || restante > 0) {
+      avisos.push("Período com menos de 14 dias de direito: o fracionamento não atende à regra de 14 + 5 dias. Validar com o departamento pessoal.");
+    }
+    if ((partes.length > 1 || restante > 0) && !prog.concordancia && !prog.coletiva) erros.push("Férias fracionadas exigem a concordância do colaborador (CLT art. 134, §1º). Marque a concordância.");
+    // início proibido (art. 134 §3º)
+    const proib = inicioProibido(prog.inicio, feriados, cfg);
+    if (proib) erros.push(`Início não permitido: faltam menos de 2 dias para feriado ou repouso semanal (${fmt(proib)}) (CLT art. 134, §3º).`);
+    // direito adquirido
+    if (prog.inicio <= per.aquisitivoFim) avisos.push(`Início antes de completar o período aquisitivo (${fmt(per.aquisitivoFim)}): férias antecipadas. Validar com o departamento pessoal.`);
+    // fora do concessivo (art. 137)
+    if (fim > per.concessivoFim) avisos.push(`Termina depois do fim do período concessivo (${fmt(per.concessivoFim)}): férias devidas em dobro (CLT art. 137).`);
+    // aviso com 30 dias (art. 135)
+    if (hoje && diff(hoje, prog.inicio) < cfg.diasAvisoLegal && prog.inicio >= hoje) avisos.push(`Início em menos de ${cfg.diasAvisoLegal} dias: o aviso por escrito deve ter ${cfg.diasAvisoLegal} dias de antecedência (CLT art. 135).`);
+    if (colab && colab.desligamento && prog.inicio > colab.desligamento) erros.push("Colaborador desligado antes do início.");
+    return { erros, avisos, fim };
+  }
+
+  // ---------- cobertura da equipe (planejamento) ----------
+  // equipes: [{id, nome, min_presentes}] ; colabs ativos com equipe_id ; progs ativas
+  function conflitosCobertura(colabs, programacoes, equipes, cfg0, de, ate) {
+    const cfg = Object.assign({}, CONFIG_PADRAO, cfg0 || {});
+    const out = [];
+    for (const eq of equipes) {
+      // com mínimo de presentes definido, contam também as pessoas das equipes de dentro (ex.: setor com equipes)
+      const temMin = eq.min_presentes != null && eq.min_presentes !== "";
+      const membros = colabs.filter(c => (c.equipe_id === eq.id || (temMin && (c.unidades || []).includes(eq.id))) && c.situacao !== "desligado");
+      if (membros.length < 2) continue;
+      const ids = new Set(membros.map(c => c.id));
+      const ps = programacoes.filter(p => ATIVOS(p) && ids.has(p.colaborador_id) && p.fim >= de && p.inicio <= ate);
+      if (ps.length < 2) continue;
+      const limite = eq.min_presentes != null && eq.min_presentes !== "" ? Math.max(0, membros.length - +eq.min_presentes) : Math.max(1, Math.floor(membros.length * cfg.maxAusenciaPct));
+      let atual = null;
+      const dias = new Set(); ps.forEach(p => { dias.add(p.inicio < de ? de : p.inicio); });
+      // varre dia a dia apenas no intervalo coberto pelas programações
+      const ini = ps.reduce((m, p) => p.inicio < m ? p.inicio : m, ate), fimMax = ps.reduce((m, p) => p.fim > m ? p.fim : m, de);
+      for (let d = ini < de ? de : ini; d <= (fimMax > ate ? ate : fimMax); d = addDays(d, 1)) {
+        const fora = ps.filter(p => p.inicio <= d && p.fim >= d);
+        if (fora.length > limite) {
+          const chave = fora.map(p => p.id).sort().join(",");
+          if (atual && atual.chave === chave && addDays(atual.fim, 1) === d) atual.fim = d;
+          else { atual = { equipe_id: eq.id, equipe: eq.nome, inicio: d, fim: d, chave, ausentes: fora.length, membros: membros.length, limite, programacoes: fora.map(p => p.id) }; out.push(atual); }
+        } else atual = null;
+      }
+    }
+    return out.map(c => { delete c.chave; return c; });
+  }
+
+  // sugestão: primeira data (até 180 dias depois) sem conflito, dentro do concessivo e com início permitido
+  function sugerirNovaData(prog, ctx) {
+    const { colabs, programacoes, equipes, feriados, periodo, config } = ctx;
+    const dias = +prog.dias;
+    for (let k = 1; k <= 180; k++) {
+      const ini = addDays(prog.inicio, k), fim = addDays(ini, dias - 1);
+      if (periodo && periodo.concessivoFim >= prog.inicio && fim > periodo.concessivoFim) return null; // já vencidas: sugere a primeira data livre
+      if (inicioProibido(ini, feriados, config)) continue;
+      const teste = programacoes.map(p => p.id === prog.id ? Object.assign({}, p, { inicio: ini, fim }) : p);
+      const eq = equipes.filter(e => e.id === ctx.equipe_id);
+      if (!conflitosCobertura(colabs, teste, eq, config, ini, fim).some(c => c.programacoes.includes(prog.id))) return { inicio: ini, fim };
+    }
+    return null;
+  }
+
+  // ---------- alertas ----------
+  function nivelPorPrazo(dias) { return dias < 0 ? "critico" : dias <= 15 ? "critico" : dias <= 45 ? "alto" : "atencao"; }
+  function gerarAlertas(dados, hoje, cfg0) {
+    const cfg = Object.assign({}, CONFIG_PADRAO, cfg0 || {});
+    const { colaboradores, ausencias, programacoes, equipes } = dados;
+    const A = [];
+    for (const c of colaboradores) {
+      if (c.situacao === "desligado") continue;
+      if (!c.admissao) { A.push({ key: `cad:${c.id}`, tipo: "administrativo", nivel: "atencao", colaborador_id: c.id, titulo: "Cadastro incompleto", detalhe: "Sem data de admissão: os períodos de férias não podem ser calculados.", prazo: null }); continue; }
+      if (!c.equipe_id && !c.unidade_id) A.push({ key: `cadeq:${c.id}`, tipo: "administrativo", nivel: "atencao", colaborador_id: c.id, titulo: "Sem equipe ou setor", detalhe: "O colaborador não entra na análise de cobertura.", prazo: null });
+      const ps = programacoes.filter(p => p.colaborador_id === c.id);
+      const per = calcularPeriodos(c, ausencias.filter(a => a.colaborador_id === c.id), ps, hoje);
+      for (const p of per) {
+        p.validar.forEach((v, i) => A.push({ key: `val:${c.id}:${p.aquisitivoInicio}:${i}`, tipo: "legal", nivel: "alto", colaborador_id: c.id, titulo: "Validação necessária", detalhe: v, prazo: null, base: "CLT art. 130/133" }));
+        if (p.status === "vencido") {
+          A.push({ key: `venc:${c.id}:${p.aquisitivoInicio}`, tipo: "legal", nivel: "critico", colaborador_id: c.id, titulo: "Férias vencidas", detalhe: `Período ${fmt(p.aquisitivoInicio)} a ${fmt(p.aquisitivoFim)}: ${p.saldo} dias não concedidos até ${fmt(p.concessivoFim)}. Férias devidas em dobro.`, prazo: p.concessivoFim, base: "CLT art. 137" });
+        } else if (p.status === "a_vencer" && p.saldo > 0) {
+          const ate = diff(hoje, p.limiteAviso);
+          if (ate <= cfg.antecedenciaProgramar) A.push({ key: `prog:${c.id}:${p.aquisitivoInicio}`, tipo: "legal", nivel: nivelPorPrazo(ate), colaborador_id: c.id, titulo: "Programar férias",
+            detalhe: `${p.saldo} dias sem programação. Para não vencer: avisar até ${fmt(p.limiteAviso)} e iniciar até ${fmt(p.limiteInicio)} (concessivo termina em ${fmt(p.concessivoFim)}).`, prazo: p.limiteAviso, base: "CLT arts. 134, 135 e 137" });
+        }
+      }
+      for (const p of ps.filter(ATIVOS)) {
+        const st = statusProg(p, hoje); if (st !== "programada") continue;
+        const prazoAviso = addDays(p.inicio, -cfg.diasAvisoLegal);
+        const dAviso = diff(hoje, prazoAviso);
+        if (!p.aviso_em && dAviso <= cfg.antecedenciaAviso) A.push({ key: `aviso:${p.id}`, tipo: "legal", nivel: nivelPorPrazo(dAviso), colaborador_id: c.id, titulo: dAviso < 0 ? "Aviso de férias atrasado" : "Avisar o colaborador",
+          detalhe: `Férias de ${fmt(p.inicio)} a ${fmt(p.fim)}. Aviso por escrito até ${fmt(prazoAviso)}.`, prazo: prazoAviso, base: "CLT art. 135" });
+        const prazoPag = addDays(p.inicio, -2); const dPag = diff(hoje, prazoPag);
+        if (!p.pagamento_ok && dPag <= cfg.antecedenciaPagamento) A.push({ key: `pag:${p.id}`, tipo: "legal", nivel: dPag < 0 ? "critico" : "alto", colaborador_id: c.id, titulo: "Pagamento das férias",
+          detalhe: `Pagar até ${fmt(prazoPag)} (início em ${fmt(p.inicio)}). Combine com a folha.`, prazo: prazoPag, base: "CLT art. 145" });
+        const dSai = diff(hoje, p.inicio);
+        if (dSai <= cfg.antecedenciaSaida) A.push({ key: `saida:${p.id}`, tipo: "administrativo", nivel: "info", colaborador_id: c.id, titulo: "Vai sair de férias",
+          detalhe: `Sai em ${fmt(p.inicio)} (em ${dSai} dia${dSai === 1 ? "" : "s"}) e volta em ${fmt(addDays(p.fim, 1))}. Organizar cobertura e trâmites.`, prazo: p.inicio });
+      }
+    }
+    const ativos = colaboradores.filter(c => c.situacao !== "desligado");
+    const conf = conflitosCobertura(ativos, programacoes.map(p => Object.assign({ fim: addDays(p.inicio, (+p.dias || 1) - 1) }, p)), equipes || [], cfg, hoje, addDays(hoje, 365));
+    conf.forEach(k => A.push({ key: `cob:${k.equipe_id}:${k.inicio}`, tipo: "administrativo", nivel: "alto", colaborador_id: null, equipe_id: k.equipe_id, titulo: "Cobertura da equipe",
+      detalhe: `${k.equipe}: ${k.ausentes} de ${k.membros} fora de ${fmt(k.inicio)} a ${fmt(k.fim)} (limite ${k.limite}).`, prazo: k.inicio, programacoes: k.programacoes }));
+    const ordem = { critico: 0, alto: 1, atencao: 2, info: 3 };
+    return A.sort((a, b) => ordem[a.nivel] - ordem[b.nivel] || (a.prazo || "9") .localeCompare(b.prazo || "9"));
+  }
+
+  const Motor = { CONFIG_PADRAO, diasPorFaltas, calcularPeriodos, validarProgramacao, inicioProibido, conflitosCobertura, sugerirNovaData, gerarAlertas, statusProg,
+    util: { addDays, addYears, diff, fmt, weekday, overlap } };
+  if (typeof module !== "undefined" && module.exports) module.exports = Motor; else root.Motor = Motor;
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
+<script>/* ===================== Gestão de Férias — aplicativo =====================
+   Desenvolvido por Leonardo Valdez. Regras de férias em motor.js.
+   ========================================================================== */
+(function () {
+"use strict";
+const CFG = window.APP_CONFIG || {};
+const LOGO = "data:image/jpeg;base64,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";
+const U = Motor.util;
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = U.fmt;
+const hojeSP = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const MESES_L = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const PAPEL = { admin: "Administrador(a)", gestor: "Gestor(a)", consulta: "Somente consulta" };
+const SIT = { ativo: "Ativo", afastado: "Afastado", desligado: "Desligado" };
+const TAUS = { falta: "Falta injustificada", justificada: "Ausência justificada (não conta como falta)", inss: "Afastamento INSS (doença/acidente)", licenca_remunerada: "Licença remunerada", licenca_nao_remunerada: "Licença não remunerada", outro: "Outro afastamento" };
+const STP = { em_aquisicao: ["Em aquisição", "p-mute"], a_vencer: ["A vencer", "p-att"], vencido: ["Vencido", "p-crit"], programado: ["Programado", "p-info"], quitado: ["Quitado", "p-ok"], sem_direito: ["Sem direito", "p-mute"] };
+const STPROG = { programada: ["Programada", "p-info"], em_gozo: ["Em férias", "p-ok"], realizada: ["Realizada", "p-mute"], cancelada: ["Cancelada", "p-mute"] };
+const NIVEL = { critico: ["Crítico", "p-crit"], alto: ["Alto", "p-high"], atencao: ["Atenção", "p-att"], info: ["Informativo", "p-info"] };
+
+let sb = null;
+const S = { user: null, plataforma: false, empresas: [], emp: null, papel: null, D: null, X: null, filtro: {}, recovery: false };
+const pode = () => S.papel === "admin" || S.papel === "gestor";
+
+// ---------- utilidades de interface ----------
+function toast(t, err) { const e = document.createElement("div"); e.className = "toast" + (err ? " err" : ""); e.setAttribute("role", "status"); e.textContent = t; document.body.appendChild(e); setTimeout(() => e.remove(), 3200); }
+function modal(html, onMount) { const bg = document.createElement("div"); bg.className = "modal-bg"; bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${html}</div>`; document.body.appendChild(bg);
+  const close = () => bg.remove(); bg.addEventListener("click", e => { if (e.target === bg) close(); }); bg.querySelectorAll("[data-close]").forEach(b => b.onclick = close);
+  const f = bg.querySelector("input,select,textarea"); if (f) setTimeout(() => f.focus(), 30); if (onMount) onMount(bg, close); return close; }
+function confirmar(texto, botao) { return new Promise(res => modal(`<h2>${esc(texto)}</h2><div class="foot"><button class="btn" data-close>Voltar</button><button class="btn warn" id="ok">${esc(botao || "Confirmar")}</button></div>`, (bg, close) => { bg.querySelector("#ok").onclick = () => { close(); res(true); }; bg.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => res(false))); })); }
+function erroMsg(e) { const m = (e && (e.message || e.error_description || e.msg)) || String(e);
+  if (/row-level security/i.test(m)) return "Sem permissão para esta ação.";
+  if (/duplicate key/i.test(m) && /matricula/i.test(m)) return "Já existe colaborador com essa matrícula.";
+  if (/duplicate key/i.test(m)) return "Registro duplicado.";
+  if (/Invalid login credentials/i.test(m)) return "E-mail ou senha incorretos.";
+  if (/Email not confirmed/i.test(m)) return "Confirme seu e-mail pelo link que enviamos antes de entrar.";
+  if (/Password should be/i.test(m)) return "A senha precisa ter pelo menos 8 caracteres.";
+  if (/Failed to fetch|NetworkError/i.test(m)) return "Sem conexão com o servidor. Verifique a internet.";
+  return m; }
+async function q(promise) { const { data, error } = await promise; if (error) throw error; return data; }
+function logErro(msg, pagina) { try { if (sb && S.user) sb.from("erros_app").insert({ empresa_id: S.emp?.id || null, mensagem: String(msg).slice(0, 1000), pagina: pagina || location.hash, navegador: navigator.userAgent.slice(0, 200) }).then(() => {}); } catch (e) {} }
+window.addEventListener("error", e => logErro(e.message + " @" + (e.filename || "") + ":" + (e.lineno || "")));
+window.addEventListener("unhandledrejection", e => logErro("promise: " + (e.reason && e.reason.message || e.reason)));
+const credit = () => `<div class="footer">${esc(CFG.nomeProduto || "Gestão de Férias")} · Desenvolvido por <b>${esc(CFG.desenvolvedor || "Leonardo Valdez")}</b></div>`;
+
+// ---------- inicialização ----------
+async function iniciar() {
+  if (!CFG.supabaseUrl || CFG.supabaseUrl.startsWith("__") || !window.supabase) {
+    $("#root").innerHTML = `<div class="auth"><div class="card"><img src="${LOGO}" alt="Croissant & Cia"><h1>Configuração pendente</h1><p>O aplicativo ainda não foi ligado ao banco de dados. Preencha <b>supabaseUrl</b> e <b>supabaseAnonKey</b> no início do arquivo index.html.</p>${credit()}</div></div>`; return; }
+  if (/type=recovery/.test(location.hash) || /type=recovery/.test(location.search)) S.recovery = true;
+  sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  sb.auth.onAuthStateChange((ev, session) => {
+    if (ev === "PASSWORD_RECOVERY") { S.recovery = true; telaNovaSenha(); return; }
+    if (ev === "SIGNED_OUT") { S.user = null; telaLogin(); }
+  });
+  const { data } = await sb.auth.getSession();
+  if (S.recovery) { if (data.session) telaNovaSenha(); return; }
+  if (data.session) await aposLogin(data.session.user); else telaLogin();
+}
+
+// ---------- autenticação ----------
+function telaAuth(inner) { $("#root").innerHTML = `<div class="auth"><section class="auth-hero" aria-hidden="true"><div class="auth-logo"><img src="${LOGO}" alt=""></div><p class="auth-frase">As férias da equipe no prazo, do aviso ao pagamento.</p><p class="auth-sub">Períodos, saldos e alertas calculados pelas regras da CLT.</p></section><div class="card"><img class="auth-logo-m" src="${LOGO}" alt="Croissant & Cia — Alimentando o Brasil com qualidade.">${inner}${credit()}</div></div>`; }
+function telaLogin(msg) {
+  telaAuth(`<h1>Gestão de Férias</h1><form id="fl" class="list" novalidate>
+    ${msg ? `<div class="msg ${msg[1] || "info"}">${esc(msg[0])}</div>` : ""}
+    <label class="f" for="le">E-mail<input id="le" type="email" autocomplete="email" required></label>
+    <label class="f" for="ls">Senha<input id="ls" type="password" autocomplete="current-password" required></label>
+    <button class="btn pri" type="submit">Entrar</button></form>
+    <div class="row" style="justify-content:space-between"><button class="btn sm" id="bCad">Criar conta</button><button class="btn sm" id="bEsq">Esqueci a senha</button></div>`);
+  $("#fl").onsubmit = async e => { e.preventDefault(); const b = e.target.querySelector("button"); b.disabled = true;
+    try { const d = await q(sb.auth.signInWithPassword({ email: $("#le").value.trim(), password: $("#ls").value })); await aposLogin(d.user); }
+    catch (err) { telaLogin([erroMsg(err), "err"]); } };
+  $("#bCad").onclick = telaCadastro; $("#bEsq").onclick = telaEsqueci;
+}
+function telaCadastro() {
+  telaAuth(`<h1>Criar conta</h1><p class="small muted">Use o mesmo e-mail que foi liberado pela empresa.</p><form id="fc" class="list" novalidate>
+    <label class="f" for="ce">E-mail<input id="ce" type="email" autocomplete="email" required></label>
+    <label class="f" for="cs">Senha (mínimo 8 caracteres)<input id="cs" type="password" autocomplete="new-password" minlength="8" required></label>
+    <label class="f" for="cs2">Repita a senha<input id="cs2" type="password" autocomplete="new-password" required></label>
+    <div id="cm"></div><button class="btn pri" type="submit">Criar conta</button></form><button class="btn sm" id="bV">Voltar para entrar</button>`);
+  $("#bV").onclick = () => telaLogin();
+  $("#fc").onsubmit = async e => { e.preventDefault(); const m = $("#cm");
+    if ($("#cs").value.length < 8) { m.innerHTML = `<div class="msg err">A senha precisa ter pelo menos 8 caracteres.</div>`; return; }
+    if ($("#cs").value !== $("#cs2").value) { m.innerHTML = `<div class="msg err">As senhas não conferem.</div>`; return; }
+    try { const d = await q(sb.auth.signUp({ email: $("#ce").value.trim(), password: $("#cs").value, options: { emailRedirectTo: location.origin + location.pathname } }));
+      if (d.session) await aposLogin(d.user); else telaLogin(["Conta criada. Abra o e-mail de confirmação que enviamos e depois entre com sua senha.", "ok"]); }
+    catch (err) { m.innerHTML = `<div class="msg err">${esc(erroMsg(err))}</div>`; } };
+}
+function telaEsqueci() {
+  telaAuth(`<h1>Recuperar senha</h1><form id="fr" class="list" novalidate><label class="f" for="re">E-mail<input id="re" type="email" required></label><div id="rm"></div><button class="btn pri" type="submit">Enviar link de recuperação</button></form><button class="btn sm" id="bV">Voltar</button>`);
+  $("#bV").onclick = () => telaLogin();
+  $("#fr").onsubmit = async e => { e.preventDefault();
+    try { await q(sb.auth.resetPasswordForEmail($("#re").value.trim(), { redirectTo: location.origin + location.pathname })); $("#rm").innerHTML = `<div class="msg ok">Se o e-mail estiver cadastrado, você vai receber um link para criar uma nova senha.</div>`; }
+    catch (err) { $("#rm").innerHTML = `<div class="msg err">${esc(erroMsg(err))}</div>`; } };
+}
+function telaNovaSenha() {
+  telaAuth(`<h1>Nova senha</h1><form id="fn" class="list" novalidate><label class="f" for="ns">Nova senha (mínimo 8)<input id="ns" type="password" minlength="8" autocomplete="new-password" required></label><div id="nm"></div><button class="btn pri" type="submit">Salvar nova senha</button></form>`);
+  $("#fn").onsubmit = async e => { e.preventDefault(); if ($("#ns").value.length < 8) { $("#nm").innerHTML = `<div class="msg err">Mínimo de 8 caracteres.</div>`; return; }
+    try { const d = await q(sb.auth.updateUser({ password: $("#ns").value })); S.recovery = false; toast("Senha alterada"); await aposLogin(d.user); }
+    catch (err) { $("#nm").innerHTML = `<div class="msg err">${esc(erroMsg(err))}</div>`; } };
+}
+async function sair() { await sb.auth.signOut(); S.user = null; S.emp = null; S.D = null; location.hash = ""; telaLogin(["Você saiu da sua conta.", "ok"]); }
+
+async function aposLogin(user) {
+  if (S.recovery) return;
+  S.user = user;
+  try { await sb.rpc("aceitar_convites"); } catch (e) {}
+  S.plataforma = !!(await sb.rpc("is_plataforma")).data;
+  const mem = await q(sb.from("membros").select("empresa_id,papel,ativo,empresas(id,nome,cnpj,config,ativo)").eq("user_id", user.id).eq("ativo", true));
+  S.empresas = mem.filter(m => m.empresas).map(m => Object.assign({}, m.empresas, { papel: m.papel }));
+  if (!S.empresas.length && !S.plataforma) {
+    telaAuth(`<h1>Acesso aguardando liberação</h1><p>Sua conta (<b>${esc(user.email)}</b>) foi criada, mas ainda não está ligada a nenhuma empresa.</p><p class="small muted">Peça ao responsável para liberar este e-mail. Depois, toque em “Verificar de novo”.</p><button class="btn pri" id="bR">Verificar de novo</button><button class="btn" id="bS">Sair</button>`);
+    $("#bR").onclick = () => aposLogin(user); $("#bS").onclick = sair; return; }
+  let last = null; try { last = localStorage.getItem("ferias_emp"); } catch (e) {}
+  const emp = S.empresas.find(e => e.id === last) || S.empresas[0];
+  if (emp) await abrirEmpresa(emp.id); else { S.emp = null; render(); }
+}
+async function abrirEmpresa(id) {
+  const e = S.empresas.find(x => x.id === id); S.emp = e; S.papel = e.papel; try { localStorage.setItem("ferias_emp", id); } catch (er) {}
+  S.filtro = {}; await carregar(); if (!location.hash || location.hash === "#/tecnico" && !S.plataforma) location.hash = "#/painel"; render();
+}
+
+// ---------- dados ----------
+async function carregar() {
+  const id = S.emp.id; const sel = (t, cols, extra) => { let r = sb.from(t).select(cols || "*").eq("empresa_id", id); if (extra) r = extra(r); return q(r); };
+  const [emp, unidades, colabs, aus, progs, feriados, tratados] = await Promise.all([
+    q(sb.from("empresas").select("*").eq("id", id).single()), sel("unidades", "*", r => r.order("ordem")), sel("colaboradores", "*", r => r.order("nome")),
+    sel("ausencias"), sel("programacoes", "*", r => r.order("inicio")), sel("feriados", "*", r => r.order("data")), sel("alertas_tratados")]);
+  Object.assign(S.emp, emp);
+  S.D = { unidades, colabs, aus, progs, feriados, tratados };
+  derivar();
+}
+function cfgEmp() { return Object.assign({}, Motor.CONFIG_PADRAO, (S.emp && S.emp.config) || {}); }
+function derivar() {
+  const D = S.D, hoje = hojeSP(), cfg = cfgEmp();
+  const uni = new Map(D.unidades.map(u => [u.id, u]));
+  const caminho = id => { const out = []; let u = uni.get(id), g = 0; while (u && g++ < 10) { out.unshift(u); u = uni.get(u.parent_id); } return out; };
+  const depto = id => caminho(id)[0] || null;
+  const nomeCaminho = id => caminho(id).map(u => u.nome).join(" › ");
+  const feriados = D.feriados.map(f => f.data);
+  const porColab = new Map(); D.colabs.forEach(c => porColab.set(c.id, { aus: [], progs: [] }));
+  D.aus.forEach(a => porColab.get(a.colaborador_id)?.aus.push(a)); D.progs.forEach(p => porColab.get(p.colaborador_id)?.progs.push(p));
+  const fichas = new Map();
+  for (const c of D.colabs) { const x = porColab.get(c.id); const per = Motor.calcularPeriodos(c, x.aus, x.progs, hoje);
+    const dep = depto(c.unidade_id);
+    const emFerias = x.progs.some(p => p.status !== "cancelada" && p.inicio <= hoje && p.fim >= hoje);
+    const afastHoje = x.aus.some(a => ["inss", "licenca_remunerada", "licenca_nao_remunerada", "outro"].includes(a.tipo) && a.inicio <= hoje && a.fim >= hoje);
+    const pend = per.filter(p => (p.status === "a_vencer" || p.status === "vencido") && p.saldo > 0);
+    const prox = pend.map(p => p.limiteAviso).sort()[0] || null;
+    fichas.set(c.id, { c, per, aus: x.aus, progs: x.progs, dep, deptoId: dep ? dep.id : null, unidade: nomeCaminho(c.unidade_id), emFerias, afastado: c.situacao === "afastado" || afastHoje, pend, prox,
+      saldo: per.filter(p => p.status !== "em_aquisicao").reduce((t, p) => t + p.saldo, 0), vencidos: per.filter(p => p.status === "vencido").length }); }
+  const ativos = D.colabs.filter(c => c.situacao !== "desligado");
+  const comCaminho = c => Object.assign({}, c, { equipe_id: c.unidade_id, unidades: caminho(c.unidade_id).map(u => u.id) });
+  const alertas = Motor.gerarAlertas({ colaboradores: D.colabs.map(comCaminho), ausencias: D.aus, programacoes: D.progs,
+    equipes: D.unidades.filter(u => u.ativo).map(u => ({ id: u.id, nome: nomeCaminho(u.id), min_presentes: u.min_presentes })) }, hoje, cfg);
+  const trat = new Map(D.tratados.map(t => [t.chave, t]));
+  S.X = { hoje, cfg, uni, caminho, depto, nomeCaminho, comCaminho, feriados, fichas, ativos, alertas, trat, abertos: alertas.filter(a => !trat.has(a.key)) };
+}
+const colabNome = id => S.X.fichas.get(id)?.c.nome || "—";
+const progStatus = p => Motor.statusProg(p, S.X.hoje);
+let ocupado = false;
+async function salvar(fn, ok) { if (ocupado) return false; ocupado = true; document.body.classList.add("ocupado");
+  try { await fn(); await carregar(); if (ok) toast(ok); render(); return true; } catch (e) { const m = erroMsg(e); toast(m, true); if (m === (e && e.message)) logErro(m); return false; } finally { ocupado = false; document.body.classList.remove("ocupado"); } }
+
+// ---------- estrutura da página ----------
+const ROTAS = [["painel", "Painel"], ["alertas", "Alertas"], ["colaboradores", "Colaboradores"], ["ferias", "Férias"], ["calendario", "Calendário"], ["planejamento", "Planejamento"], ["relatorios", "Relatórios"], ["estrutura", "Estrutura"], ["config", "Configurações"]];
+function rota() { return (location.hash.replace(/^#\/?/, "").split("?")[0]) || "painel"; }
+window.addEventListener("hashchange", () => { if (S.user) render(); });
+function render() {
+  if (!S.user) return;
+  const r = rota(); const rotas = S.emp ? ROTAS.slice() : []; if (S.plataforma) rotas.push(["tecnico", "Painel técnico"]);
+  if (!S.emp && r !== "tecnico") { location.hash = "#/tecnico"; return; }
+  const n = S.emp ? S.X.abertos.filter(a => a.nivel === "critico" || a.nivel === "alto").length : 0;
+  const link = ([k, l]) => `<a href="#/${k}" ${k === r ? 'aria-current="page"' : ""}>${l}${k === "alertas" && n ? `<span class="badge">${n}</span>` : ""}</a>`;
+  const empSel = S.empresas.length > 1 ? `<select id="empSel" aria-label="Empresa" style="background:#fff">${S.empresas.map(e => `<option value="${e.id}" ${S.emp && e.id === S.emp.id ? "selected" : ""}>${esc(e.nome)}</option>`).join("")}</select>` : S.emp ? `<div style="font-weight:800">${esc(S.emp.nome)}</div>` : "";
+  const telas = { painel: vPainel, alertas: vAlertas, colaboradores: vColabs, ferias: vFerias, calendario: vCalendario, planejamento: vPlanejamento, relatorios: vRelatorios, estrutura: vEstrutura, config: vConfig, tecnico: vTecnico };
+  const tela = (r === "tecnico" && S.plataforma) ? vTecnico : (S.emp && telas[r]) || vPainel;
+  $("#root").innerHTML = `<div class="app"><aside class="side"><div class="logo"><img src="${LOGO}" alt="Croissant & Cia"></div>${empSel}
+    <nav aria-label="Menu">${rotas.map(link).join("")}</nav>
+    <div class="foot">${esc(S.user.email)}<br>${S.papel ? PAPEL[S.papel] : ""}<br><button class="btn sm" id="bSair" style="margin-top:6px">Sair</button><br><br>Desenvolvido por Leonardo Valdez</div></aside>
+    <header class="top"><div class="row1"><img src="${LOGO}" alt="Croissant & Cia">${S.empresas.length > 1 ? empSel.replace('id="empSel"', 'id="empSel2"') : ""}<button class="btn sm" id="bSair2">Sair</button></div><nav class="mnav" aria-label="Menu">${rotas.map(link).join("")}</nav></header>
+    <main><div class="wrap" id="tela"></div>${credit()}</main></div>`;
+  ["#bSair", "#bSair2"].forEach(s => { const b = $(s); if (b) b.onclick = sair; });
+  ["#empSel", "#empSel2"].forEach(s => { const e = $(s); if (e) e.onchange = () => abrirEmpresa(e.value); });
+  try { tela($("#tela")); } catch (e) { $("#tela").innerHTML = `<div class="msg err">Erro ao montar a tela: ${esc(e.message)}</div>`; logErro(e.stack || e.message); }
+}
+
+// ---------- filtros comuns ----------
+function filtroHTML(opts) { const F = S.filtro; const deps = S.D.unidades.filter(u => u.tipo === "departamento" && u.ativo);
+  const subs = F.dep ? S.D.unidades.filter(u => u.ativo && u.id !== F.dep && S.X.caminho(u.id)[0]?.id === F.dep) : [];
+  const ativos = [F.dep, F.busca, F.de, F.ate, F.tipoAl, F.nivel, F.verTrat === "1" ? 1 : "", F.sit && F.sit !== "ativos" ? 1 : "", F.stp && F.stp !== "ativas" ? 1 : ""].filter(Boolean).length;
+  const aberto = window.innerWidth >= 900 || ativos || S.filtroAberto;
+  return `<details class="fbox" ${aberto ? "open" : ""}><summary>Filtros${ativos ? ` <span class="pill p-info">${ativos} ativo(s)</span>` : ""}</summary><div class="filters">
+  <label class="f" for="fDep">Departamento<select id="fDep"><option value="">Todos</option>${deps.map(d => `<option value="${d.id}" ${F.dep === d.id ? "selected" : ""}>${esc(d.nome)}</option>`).join("")}</select></label>
+  <label class="f" for="fUni">Setor / equipe<select id="fUni" ${F.dep ? "" : "disabled"}><option value="">Todos</option>${subs.map(u => `<option value="${u.id}" ${F.uni === u.id ? "selected" : ""}>${esc(S.X.nomeCaminho(u.id).split(" › ").slice(1).join(" › "))}</option>`).join("")}</select></label>
+  ${opts && opts.busca ? `<label class="f" for="fBusca">Buscar colaborador<input id="fBusca" value="${esc(F.busca || "")}" placeholder="Nome ou matrícula"></label>` : ""}
+  ${opts && opts.periodo ? `<label class="f" for="fDe">De<input type="date" id="fDe" value="${F.de || ""}"></label><label class="f" for="fAte">Até<input type="date" id="fAte" value="${F.ate || ""}"></label>` : ""}
+  ${opts && opts.extra || ""}</div></details>`; }
+function ligarFiltros(root, rerender) { const F = S.filtro; const fb = root.querySelector(".fbox"); if (fb) fb.addEventListener("toggle", () => { S.filtroAberto = fb.open; });
+  const on = (id, k, ev) => { const e = root.querySelector(id); if (e) e.addEventListener(ev || "change", () => { F[k] = e.value; if (k === "dep") F.uni = ""; rerender(); }); };
+  on("#fDep", "dep"); on("#fUni", "uni"); on("#fDe", "de"); on("#fAte", "ate");
+  const b = root.querySelector("#fBusca"); if (b) b.addEventListener("input", () => { F.busca = b.value; clearTimeout(b._t); b._t = setTimeout(() => { rerender(); const n = root.querySelector("#fBusca"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 250); }); }
+function passaFiltro(f) { const F = S.filtro;
+  if (F.dep && f.deptoId !== F.dep) return false;
+  if (F.uni && !S.X.caminho(f.c.unidade_id).some(u => u.id === F.uni)) return false;
+  if (F.busca) { const t = F.busca.toLowerCase(); if (!(f.c.nome.toLowerCase().includes(t) || String(f.c.matricula).toLowerCase().includes(t))) return false; }
+  return true; }
+const fichasFiltradas = (incluirDesligados) => [...S.X.fichas.values()].filter(f => (incluirDesligados || f.c.situacao !== "desligado") && passaFiltro(f));
+const kpi = (l, v, cls, d) => `<div class="kpi ${cls || ""}${+v === 0 ? " zero" : ""}"><div class="l">${l}</div><div class="v">${v}</div>${d ? `<div class="d">${d}</div>` : ""}</div>`;
+function barras(itens, max) { max = max || Math.max(1, ...itens.map(i => i[1])); return `<div class="bars">${itens.map(([l, v, d]) => `<div class="bar"><span>${esc(l)}</span><span class="t"><i style="width:${(v / max * 100).toFixed(1)}%"></i></span><span class="c">${v}${d ? "" : ""}</span></div>`).join("")}</div>`; }
+
+// ---------- PAINEL ----------
+function vPainel(el) {
+  const fs = fichasFiltradas(); const hoje = S.X.hoje; const ids = new Set(fs.map(f => f.c.id));
+  const progs = S.D.progs.filter(p => ids.has(p.colaborador_id) && p.status !== "cancelada");
+  const ano = hoje.slice(0, 4);
+  const al = S.X.abertos.filter(a => !a.colaborador_id || ids.has(a.colaborador_id));
+  const prox90 = fs.filter(f => f.prox && U.diff(hoje, f.prox) <= 90);
+  const deps = S.D.unidades.filter(u => u.tipo === "departamento" && u.ativo);
+  const meses = []; for (let k = 0; k < 12; k++) { const d = new Date(Date.UTC(+hoje.slice(0, 4), +hoje.slice(5, 7) - 1 + k, 1)); const m = d.toISOString().slice(0, 7);
+    meses.push([`${MESES[d.getUTCMonth()]}/${String(d.getUTCFullYear()).slice(2)}`, new Set(progs.filter(p => p.inicio.slice(0, 7) <= m && p.fim.slice(0, 7) >= m).map(p => p.colaborador_id)).size]); }
+  const nHoje = fs.filter(f => f.emFerias).length, nCrit = al.filter(a => a.nivel === "critico").length;
+  const frase = !S.D.colabs.length ? "Cadastre a equipe para o sistema calcular as férias." : `${nHoje ? `<b>${nHoje}</b> ${nHoje === 1 ? "pessoa está" : "pessoas estão"} de férias hoje` : "Ninguém de férias hoje"}${nCrit ? ` e há <b>${nCrit}</b> ${nCrit === 1 ? "pendência crítica" : "pendências críticas"} para resolver.` : ", sem pendências críticas."}`;
+  el.innerHTML = `<div class="head"><div><h1>Painel de férias</h1><p class="hero-frase">${frase}</p></div><span class="muted small">Dados de ${fmt(hoje)}</span></div>
+  ${S.D.colabs.length ? "" : `<div class="msg info"><b>Comece por aqui:</b> confira a <a href="#/estrutura">estrutura de departamentos</a>, depois cadastre ou importe os <a href="#/colaboradores">colaboradores</a>. Os períodos, saldos e alertas são calculados automaticamente.</div>`}
+  ${filtroHTML()}
+  <div class="kpis">${kpi("Colaboradores", fs.length, "", `${fs.filter(f => f.c.situacao === "ativo" && !f.afastado).length} ativos`)}${kpi("Afastados", fs.filter(f => f.afastado).length, "kc-info")}${kpi("Em férias hoje", fs.filter(f => f.emFerias).length, "")}
+  ${kpi("Com férias pendentes", fs.filter(f => f.pend.length).length, "kc-att", `${fs.reduce((t, f) => t + f.pend.reduce((s, p) => s + p.saldo, 0), 0)} dias de saldo`)}${kpi("Férias vencidas", fs.filter(f => f.vencidos).length, "kc-crit", "pagamento em dobro")}
+  ${kpi("Programadas", progs.filter(p => progStatus(p) === "programada").length, "kc-info")}${kpi(`Realizadas em ${ano}`, progs.filter(p => progStatus(p) === "realizada" && p.inicio.startsWith(ano)).length, "")}
+  ${kpi("Vencem em 90 dias", prox90.length, "kc-high", "prazo para avisar")}${kpi("Pendências críticas", al.filter(a => a.nivel === "critico").length, "kc-crit", `<a href="#/alertas">ver alertas</a>`)}</div>
+  <div class="grid2"><div class="panel"><h2>Pessoas de férias por mês</h2><p class="small muted">Próximos 12 meses, pelas programações registradas.</p>${barras(meses)}</div>
+  <div class="panel"><h2>Por departamento</h2><div class="scroll"><table><thead><tr><th>Departamento</th><th class="n">Pessoas</th><th class="n">Em férias</th><th class="n">Pendentes</th><th class="n">Vencidas</th></tr></thead><tbody>
+  ${deps.map(d => { const x = fs.filter(f => f.deptoId === d.id); return `<tr class="click" tabindex="0" data-dep="${d.id}"><td>${esc(d.nome)}</td><td class="n">${x.length}</td><td class="n">${x.filter(f => f.emFerias).length}</td><td class="n">${x.filter(f => f.pend.length).length}</td><td class="n">${x.filter(f => f.vencidos).length}</td></tr>`; }).join("")}
+  ${fs.some(f => !f.deptoId) ? `<tr><td class="muted">Sem departamento</td><td class="n">${fs.filter(f => !f.deptoId).length}</td><td></td><td></td><td></td></tr>` : ""}</tbody></table></div></div></div>
+  <div class="panel"><div class="head"><h2>Próximos prazos</h2><a class="btn sm" href="#/alertas">Todos os alertas</a></div>
+  <div class="scroll"><table><thead><tr><th>Colaborador</th><th>Departamento</th><th class="n">Saldo</th><th>Avisar até</th><th>Situação</th></tr></thead><tbody>
+  ${fs.filter(f => f.prox).sort((a, b) => a.prox.localeCompare(b.prox)).slice(0, 12).map(f => { const dd = U.diff(hoje, f.prox); return `<tr class="click" tabindex="0" data-col="${f.c.id}"><td>${esc(f.c.nome)}</td><td>${esc(f.dep?.nome || "—")}</td><td class="n">${f.pend.reduce((s, p) => s + p.saldo, 0)}</td><td class="num">${fmt(f.prox)}</td><td>${f.vencidos ? `<span class="pill p-crit">Vencida</span>` : dd < 15 ? `<span class="pill p-crit">${dd} dias</span>` : dd < 45 ? `<span class="pill p-high">${dd} dias</span>` : `<span class="pill p-att">${dd} dias</span>`}</td></tr>`; }).join("") || `<tr><td colspan="5" class="muted">Nenhum prazo pendente.</td></tr>`}</tbody></table></div></div>`;
+  ligarFiltros(el, () => vPainel(el));
+  el.querySelectorAll("[data-dep]").forEach(r => r.onclick = () => { S.filtro.dep = r.dataset.dep; S.filtro.uni = ""; vPainel(el); });
+  el.querySelectorAll("[data-col]").forEach(r => r.onclick = () => fichaColab(r.dataset.col));
+  el.querySelectorAll("tr.click").forEach(r => r.onkeydown = e => { if (e.key === "Enter") r.click(); });
+}
+
+// ---------- ALERTAS ----------
+function vAlertas(el) {
+  const F = S.filtro; const verTrat = F.verTrat === "1";
+  const lista = (verTrat ? S.X.alertas.filter(a => S.X.trat.has(a.key)) : S.X.abertos).filter(a => (!F.tipoAl || a.tipo === F.tipoAl) && (!F.nivel || a.nivel === F.nivel))
+    .filter(a => { if (!F.dep && !F.uni) return true; if (!a.colaborador_id) return true; const f = S.X.fichas.get(a.colaborador_id); return f && passaFiltro(f); });
+  const cont = t => S.X.abertos.filter(a => a.tipo === t).length;
+  el.innerHTML = `<div class="head"><h1>Alertas</h1><span class="muted small">${S.X.abertos.length} em aberto · ${cont("legal")} legais · ${cont("administrativo")} administrativos</span></div>
+  <p class="small muted">Os alertas de férias começam <b>${S.X.cfg.antecedenciaProgramar} dias antes do último dia para avisar o colaborador</b>, para dar tempo de programar, avisar com 30 dias (CLT art. 135) e pagar até 2 dias antes (art. 145). Ajuste em Configurações.</p>
+  ${filtroHTML({ extra: `<label class="f" for="fTipo">Tipo<select id="fTipo"><option value="">Todos</option><option value="legal" ${F.tipoAl === "legal" ? "selected" : ""}>Legais (CLT)</option><option value="administrativo" ${F.tipoAl === "administrativo" ? "selected" : ""}>Administrativos</option></select></label>
+  <label class="f" for="fNiv">Gravidade<select id="fNiv"><option value="">Todas</option>${Object.entries(NIVEL).map(([k, v]) => `<option value="${k}" ${F.nivel === k ? "selected" : ""}>${v[0]}</option>`).join("")}</select></label>
+  <label class="f" for="fTrat">Mostrar<select id="fTrat"><option value="0">Em aberto</option><option value="1" ${verTrat ? "selected" : ""}>Já tratados</option></select></label>` })}
+  <div class="list">${lista.map(a => { const t = S.X.trat.get(a.key); return `<div class="alert a-${a.nivel}"><div class="row" style="justify-content:space-between"><b>${esc(a.titulo)}${a.colaborador_id ? ` · ${esc(colabNome(a.colaborador_id))}` : ""}</b>
+    <span class="row"><span class="pill ${a.tipo === "legal" ? "p-crit" : "p-info"}">${a.tipo === "legal" ? "Legal" : "Administrativo"}</span><span class="pill ${NIVEL[a.nivel][1]}">${NIVEL[a.nivel][0]}</span></span></div>
+    <span>${esc(a.detalhe)}</span>${a.base ? `<span class="small muted">Base: ${esc(a.base)}</span>` : ""}
+    ${t ? `<span class="small"><b>Tratado em ${fmt(t.tratado_em.slice(0, 10))}:</b> ${esc(t.nota || "")}</span>` : ""}
+    <div class="row">${a.colaborador_id ? `<button class="btn sm" data-col="${a.colaborador_id}">Abrir colaborador</button>` : ""}${a.key.startsWith("cob:") ? `<a class="btn sm" href="#/planejamento">Ver planejamento</a>` : ""}${pode() ? (t ? `<button class="btn sm" data-reabrir="${esc(a.key)}">Reabrir</button>` : `<button class="btn sm pri" data-tratar="${esc(a.key)}">Marcar como tratado</button>`) : ""}</div></div>`; }).join("") || `<div class="msg ok">Nenhum alerta ${verTrat ? "tratado" : "em aberto"} com esses filtros.</div>`}</div>`;
+  ligarFiltros(el, () => vAlertas(el));
+  [["#fTipo", "tipoAl"], ["#fNiv", "nivel"], ["#fTrat", "verTrat"]].forEach(([s, k]) => el.querySelector(s).onchange = e => { F[k] = e.target.value; vAlertas(el); });
+  el.querySelectorAll("[data-col]").forEach(b => b.onclick = () => fichaColab(b.dataset.col));
+  el.querySelectorAll("[data-tratar]").forEach(b => b.onclick = () => modal(`<h2>Marcar como tratado</h2><label class="f" for="tn">O que foi feito / decisão<textarea id="tn" placeholder="Ex.: aviso entregue em mãos; férias programadas para março"></textarea></label><div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="ok">Salvar</button></div>`,
+    (bg, close) => bg.querySelector("#ok").onclick = async () => { const nota = bg.querySelector("#tn").value.trim(); if (!nota) { toast("Descreva o que foi feito.", true); return; } close();
+      await salvar(() => q(sb.from("alertas_tratados").upsert({ empresa_id: S.emp.id, chave: b.dataset.tratar, nota })), "Alerta marcado como tratado"); }));
+  el.querySelectorAll("[data-reabrir]").forEach(b => b.onclick = () => salvar(() => q(sb.from("alertas_tratados").delete().eq("empresa_id", S.emp.id).eq("chave", b.dataset.reabrir)), "Alerta reaberto"));
+}
+
+// ---------- COLABORADORES ----------
+function vColabs(el) {
+  const F = S.filtro; const sit = F.sit || "ativos";
+  const fs = fichasFiltradas(true).filter(f => sit === "todos" ? true : sit === "ativos" ? f.c.situacao !== "desligado" : f.c.situacao === sit);
+  el.innerHTML = `<div class="head"><h1>Colaboradores</h1><div class="row">${pode() ? `<button class="btn" id="bImp">Importar planilha</button><button class="btn pri" id="bNovo">+ Colaborador</button>` : ""}</div></div>
+  ${filtroHTML({ busca: true, extra: `<label class="f" for="fSit">Situação<select id="fSit">${[["ativos", "Ativos e afastados"], ["afastado", "Afastados"], ["desligado", "Desligados"], ["todos", "Todos"]].map(([k, l]) => `<option value="${k}" ${sit === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>` })}
+  <div class="panel scroll" style="padding:0"><table><thead><tr><th>Nome</th><th>Matrícula</th><th>Departamento / setor</th><th>Cargo</th><th>Admissão</th><th class="n">Saldo</th><th>Férias</th></tr></thead><tbody>
+  ${fs.map(f => `<tr class="click" tabindex="0" data-col="${f.c.id}"><td><b>${esc(f.c.nome)}</b>${f.c.situacao !== "ativo" ? ` <span class="pill p-mute">${SIT[f.c.situacao]}</span>` : ""}${f.emFerias ? ` <span class="pill p-ok">Em férias</span>` : ""}</td><td class="num">${esc(f.c.matricula)}</td><td>${esc(f.unidade || "—")}</td><td>${esc(f.c.cargo || "")}</td><td class="num">${fmt(f.c.admissao) || `<span class="pill p-att">Falta</span>`}</td><td class="n">${f.saldo}</td>
+   <td>${f.vencidos ? `<span class="pill p-crit">Vencida</span>` : f.prox ? `<span class="pill p-att">Avisar até ${fmt(f.prox)}</span>` : `<span class="pill p-ok">Em dia</span>`}</td></tr>`).join("") || `<tr><td colspan="7" class="muted">Nenhum colaborador encontrado.</td></tr>`}</tbody></table></div>
+  <p class="small muted">${fs.length} colaborador(es).</p>`;
+  ligarFiltros(el, () => vColabs(el));
+  el.querySelector("#fSit").onchange = e => { F.sit = e.target.value; vColabs(el); };
+  el.querySelectorAll("[data-col]").forEach(r => { r.onclick = () => fichaColab(r.dataset.col); r.onkeydown = e => { if (e.key === "Enter") r.click(); }; });
+  if (pode()) { el.querySelector("#bNovo").onclick = () => formColab(); el.querySelector("#bImp").onclick = importar; }
+}
+function opcoesUnidade(sel) { const ativos = S.D.unidades.filter(u => u.ativo || u.id === sel); return `<option value="">— escolha —</option>` + ativos.map(u => ({ u, n: S.X.nomeCaminho(u.id) })).sort((a, b) => a.n.localeCompare(b.n)).map(({ u, n }) => `<option value="${u.id}" ${sel === u.id ? "selected" : ""}>${esc(n)}</option>`).join(""); }
+function formColab(c) {
+  c = c || {};
+  modal(`<h2>${c.id ? "Editar colaborador" : "Novo colaborador"}</h2><form id="fc" class="list" novalidate>
+  <label class="f" for="c-nome">Nome completo<input id="c-nome" required value="${esc(c.nome)}"></label>
+  <label class="f" for="c-mat">Matrícula<input id="c-mat" required value="${esc(c.matricula)}"></label>
+  <label class="f" for="c-uni">Departamento › setor › equipe<select id="c-uni">${opcoesUnidade(c.unidade_id)}</select></label>
+  <label class="f" for="c-cargo">Cargo<input id="c-cargo" value="${esc(c.cargo)}"></label>
+  <label class="f" for="c-adm">Data de admissão<input id="c-adm" type="date" value="${c.admissao || ""}" required></label>
+  <label class="f" for="c-tipo">Tipo de contrato<select id="c-tipo">${["CLT", "Tempo parcial", "Aprendiz", "Intermitente", "Outro"].map(t => `<option ${c.tipo_contrato === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+  <label class="f" for="c-sit">Situação<select id="c-sit">${Object.entries(SIT).map(([k, v]) => `<option value="${k}" ${c.situacao === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+  <label class="f" for="c-desl">Data de desligamento (se desligado)<input id="c-desl" type="date" value="${c.desligamento || ""}"></label>
+  <label class="f" for="c-quit">Férias já quitadas até (fim do período aquisitivo)<input id="c-quit" type="date" value="${c.ferias_quitadas_ate || ""}"></label>
+  <p class="small muted" style="margin:0">Use “quitadas até” para colaboradores antigos cujas férias anteriores já foram gozadas antes do sistema.</p>
+  <label class="f" for="c-obs">Observações<textarea id="c-obs">${esc(c.obs)}</textarea></label><div id="cm"></div>
+  <div class="foot"><button type="button" class="btn" data-close>Cancelar</button><button class="btn pri" type="submit">Salvar</button></div></form>`, (bg, close) => {
+    bg.querySelector("#fc").onsubmit = async e => { e.preventDefault(); const v = id => bg.querySelector(id).value.trim();
+      const row = { empresa_id: S.emp.id, nome: v("#c-nome"), matricula: v("#c-mat"), unidade_id: v("#c-uni") || null, cargo: v("#c-cargo") || null, admissao: v("#c-adm") || null, tipo_contrato: v("#c-tipo"), situacao: v("#c-sit"), desligamento: v("#c-desl") || null, ferias_quitadas_ate: v("#c-quit") || null, obs: v("#c-obs") || null };
+      const errs = []; if (row.nome.length < 2) errs.push("Informe o nome."); if (!row.matricula) errs.push("Informe a matrícula."); if (!row.admissao) errs.push("Informe a data de admissão.");
+      if (row.situacao === "desligado" && !row.desligamento) errs.push("Informe a data de desligamento."); if (row.admissao && row.admissao > S.X.hoje) errs.push("Admissão no futuro.");
+      if (row.desligamento && row.admissao && row.desligamento < row.admissao) errs.push("O desligamento não pode ser antes da admissão.");
+      if (row.ferias_quitadas_ate && row.admissao && row.ferias_quitadas_ate < row.admissao) errs.push("“Férias quitadas até” não pode ser antes da admissão.");
+      if (errs.length) { bg.querySelector("#cm").innerHTML = `<div class="msg err"><ul>${errs.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>`; return; }
+      const okk = await salvar(() => c.id ? q(sb.from("colaboradores").update(row).eq("id", c.id)) : q(sb.from("colaboradores").insert(row)), c.id ? "Colaborador atualizado" : "Colaborador cadastrado");
+      if (okk) { close(); if (c.id) fichaColab(c.id); } }; });
+}
+function fichaColab(id) {
+  const f = S.X.fichas.get(id); if (!f) return; const c = f.c; const hoje = S.X.hoje;
+  const close = modal(`<div class="head"><h2>${esc(c.nome)}</h2>${pode() ? `<button class="btn sm" id="bEd">Editar</button>` : ""}</div>
+  <div class="small"><b>Matrícula</b> ${esc(c.matricula)} · <b>Admissão</b> ${fmt(c.admissao) || "—"} · <b>${esc(f.unidade || "Sem departamento")}</b>${c.cargo ? " · " + esc(c.cargo) : ""} · ${SIT[c.situacao]}${c.tipo_contrato !== "CLT" ? ` · <span class="pill p-att">${esc(c.tipo_contrato)}: validar regras</span>` : ""}</div>
+  ${c.obs ? `<div class="small muted">${esc(c.obs)}</div>` : ""}
+  <h3>Períodos de férias</h3><div class="scroll"><table><thead><tr><th>Aquisitivo</th><th>Concessivo até</th><th class="n">Faltas</th><th class="n">Direito</th><th class="n">Usados</th><th class="n">Saldo</th><th>Situação</th></tr></thead><tbody>
+  ${f.per.slice().reverse().map(p => `<tr><td class="num">${fmt(p.aquisitivoInicio)} a ${fmt(p.aquisitivoFim)}</td><td class="num">${fmt(p.concessivoFim)}</td><td class="n">${p.faltas}</td><td class="n">${p.direito}</td><td class="n">${p.usados}</td><td class="n"><b>${p.saldo}</b></td>
+    <td><span class="pill ${STP[p.status][1]}">${STP[p.status][0]}</span>${p.status === "a_vencer" && p.saldo ? `<div class="small">Avisar até ${fmt(p.limiteAviso)}</div>` : ""}${p.validar.length ? `<div class="small" style="color:var(--high)">${p.validar.map(esc).join("<br>")}</div>` : ""}</td></tr>`).join("") || `<tr><td colspan="7" class="muted">Cadastre a data de admissão.</td></tr>`}</tbody></table></div>
+  ${pode() ? `<div class="row">${c.situacao !== "desligado" && c.admissao ? `<button class="btn pri" id="bProg">Programar férias</button>` : ""}<button class="btn" id="bAus">Registrar falta/afastamento</button></div>` : ""}
+  <h3>Férias registradas</h3><div class="list">${f.progs.slice().sort((a, b) => b.inicio.localeCompare(a.inicio)).map(p => { const st = progStatus(p); return `<div class="alert" style="--ac:var(--green-2)"><div class="row" style="justify-content:space-between"><b>${fmt(p.inicio)} a ${fmt(p.fim)} · ${p.dias} dias${p.abono ? ` + ${p.abono} de abono` : ""}</b><span class="pill ${STPROG[st][1]}">${STPROG[st][0]}</span></div>
+    <span class="small">Período aquisitivo de ${fmt(p.periodo)} · Aviso: ${p.aviso_em ? fmt(p.aviso_em) : "não registrado"} · Pagamento: ${p.pagamento_ok ? "confirmado" : "pendente"}${p.coletiva ? " · Coletivas" : ""}</span>${p.justificativa ? `<span class="small"><b>Justificativa:</b> ${esc(p.justificativa)}</span>` : ""}${p.obs ? `<span class="small muted">${esc(p.obs)}</span>` : ""}
+    ${pode() && st !== "cancelada" ? `<div class="row">${!p.aviso_em ? `<button class="btn sm" data-aviso="${p.id}">Registrar aviso</button>` : ""}${!p.pagamento_ok ? `<button class="btn sm" data-pag="${p.id}">Pagamento confirmado</button>` : ""}${st === "programada" ? `<button class="btn sm warn" data-cancel="${p.id}">Cancelar</button>` : ""}</div>` : ""}</div>`; }).join("") || `<p class="muted small">Nenhuma férias registrada.</p>`}</div>
+  <h3>Faltas e afastamentos</h3><div class="scroll"><table><tbody>${f.aus.slice().sort((a, b) => b.inicio.localeCompare(a.inicio)).map(a => `<tr><td>${esc(TAUS[a.tipo])}</td><td class="num">${fmt(a.inicio)}${a.fim !== a.inicio ? " a " + fmt(a.fim) : ""}</td><td class="n">${U.diff(a.inicio, a.fim) + 1} dia(s)</td><td>${esc(a.obs || "")}</td><td>${pode() ? `<button class="btn sm" data-delaus="${a.id}">Remover</button>` : ""}</td></tr>`).join("") || `<tr><td class="muted">Nenhum registro.</td></tr>`}</tbody></table></div>
+  <div class="foot"><button class="btn" data-close>Fechar</button></div>`, (bg, close) => {
+    const fechar = () => close();
+    const b = s => bg.querySelector(s);
+    if (b("#bEd")) b("#bEd").onclick = () => { fechar(); formColab(c); };
+    if (b("#bProg")) b("#bProg").onclick = () => { fechar(); formFerias({ colaborador_id: c.id }); };
+    if (b("#bAus")) b("#bAus").onclick = () => { fechar(); formAusencia(c.id); };
+    bg.querySelectorAll("[data-aviso]").forEach(x => x.onclick = () => { fechar(); modal(`<h2>Registrar aviso de férias</h2><label class="f" for="av">Data em que o colaborador recebeu o aviso por escrito<input id="av" type="date" value="${hoje}"></label><div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="ok">Salvar</button></div>`,
+      (bg2, c2) => bg2.querySelector("#ok").onclick = async () => { const dv = bg2.querySelector("#av").value; if (!dv) { toast("Informe a data do aviso.", true); return; } if (dv > hoje) { toast("A data do aviso não pode ser no futuro.", true); return; } c2(); await salvar(() => q(sb.from("programacoes").update({ aviso_em: dv }).eq("id", x.dataset.aviso)), "Aviso registrado"); fichaColab(id); }); });
+    bg.querySelectorAll("[data-pag]").forEach(x => x.onclick = async () => { fechar(); if (!(await confirmar("Confirmar que o pagamento destas férias foi feito?", "Pagamento feito"))) { fichaColab(id); return; } await salvar(() => q(sb.from("programacoes").update({ pagamento_ok: true }).eq("id", x.dataset.pag)), "Pagamento confirmado"); fichaColab(id); });
+    bg.querySelectorAll("[data-cancel]").forEach(x => x.onclick = () => { fechar(); modal(`<h2>Cancelar férias</h2><label class="f" for="mo">Motivo (fica no histórico)<textarea id="mo"></textarea></label><div class="foot"><button class="btn" data-close>Voltar</button><button class="btn warn" id="ok">Cancelar férias</button></div>`,
+      (bg2, c2) => bg2.querySelector("#ok").onclick = async () => { const mo = bg2.querySelector("#mo").value.trim(); if (!mo) { toast("Informe o motivo.", true); return; } c2();
+        const p = S.D.progs.find(z => z.id === x.dataset.cancel); await salvar(() => q(sb.from("programacoes").update({ status: "cancelada", obs: ((p.obs ? p.obs + " | " : "") + "Cancelada: " + mo) }).eq("id", p.id)), "Férias canceladas"); fichaColab(id); }); });
+    bg.querySelectorAll("[data-delaus]").forEach(x => x.onclick = async () => { fechar(); if (await confirmar("Remover este registro de falta/afastamento?", "Remover")) await salvar(() => q(sb.from("ausencias").delete().eq("id", x.dataset.delaus)), "Registro removido"); fichaColab(id); });
+  });
+}
+function formAusencia(cid) {
+  modal(`<h2>Falta ou afastamento · ${esc(colabNome(cid))}</h2><form id="fa" class="list" novalidate>
+  <label class="f" for="a-tipo">Tipo<select id="a-tipo">${Object.entries(TAUS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
+  <label class="f" for="a-ini">Início<input id="a-ini" type="date" required></label><label class="f" for="a-fim">Fim (para um dia, repita a data)<input id="a-fim" type="date" required></label>
+  <label class="f" for="a-obs">Observação<input id="a-obs"></label><p class="small muted" style="margin:0">Faltas injustificadas reduzem os dias de férias (CLT art. 130). Afastamentos longos geram alerta para validação (art. 133).</p>
+  <div class="foot"><button type="button" class="btn" data-close>Cancelar</button><button class="btn pri" type="submit">Salvar</button></div></form>`, (bg, close) => {
+    bg.querySelector("#a-ini").onchange = e => { const f = bg.querySelector("#a-fim"); if (!f.value) f.value = e.target.value; };
+    bg.querySelector("#fa").onsubmit = async e => { e.preventDefault(); const v = s => bg.querySelector(s).value; if (v("#a-fim") < v("#a-ini")) { toast("O fim não pode ser antes do início.", true); return; }
+      if (await salvar(() => q(sb.from("ausencias").insert({ empresa_id: S.emp.id, colaborador_id: cid, tipo: v("#a-tipo"), inicio: v("#a-ini"), fim: v("#a-fim"), obs: v("#a-obs") || null })), "Registro salvo")) { close(); fichaColab(cid); } }; });
+}
+
+// ---------- FÉRIAS ----------
+function formFerias(pre) {
+  pre = pre || {}; const hoje = S.X.hoje;
+  const colabs = [...S.X.fichas.values()].filter(f => f.c.situacao !== "desligado" && f.c.admissao).sort((a, b) => a.c.nome.localeCompare(b.c.nome));
+  if (!colabs.length) { modal(`<h2>Programar férias</h2><div class="msg info">Nenhum colaborador ativo com data de admissão. Cadastre os colaboradores primeiro em <b>Colaboradores</b>.</div><div class="foot"><button class="btn" data-close>Fechar</button></div>`); return; }
+  modal(`<h2>Programar férias</h2><form id="ff" class="list" novalidate>
+  <label class="f" for="p-col">Colaborador<select id="p-col">${colabs.map(f => `<option value="${f.c.id}" ${pre.colaborador_id === f.c.id ? "selected" : ""}>${esc(f.c.nome)} · ${esc(f.c.matricula)}</option>`).join("")}</select></label>
+  <label class="f" for="p-per">Período aquisitivo<select id="p-per"></select></label>
+  <div class="filters"><label class="f" for="p-ini">Início<input id="p-ini" type="date" required></label><label class="f" for="p-dias">Dias de férias<input id="p-dias" type="number" min="5" max="30" value="30"></label><label class="f" for="p-ab">Abono (dias vendidos)<input id="p-ab" type="number" min="0" max="10" value="0"></label></div>
+  <label class="f inline"><input type="checkbox" id="p-conc"> O colaborador concordou por escrito com o fracionamento</label>
+  <div id="pv"></div>
+  <label class="f" for="p-just">Justificativa (obrigatória quando houver aviso)<textarea id="p-just"></textarea></label>
+  <label class="f" for="p-obs">Observação<input id="p-obs"></label>
+  <div class="foot"><button type="button" class="btn" data-close>Cancelar</button><button class="btn pri" type="submit">Salvar programação</button></div></form>`, (bg, close) => {
+    const b = s => bg.querySelector(s);
+    const fichaAt = () => S.X.fichas.get(b("#p-col").value);
+    const enchePer = () => { const f = fichaAt(); if (!f) { b("#p-per").innerHTML = ""; return; } const ps = f.per.filter(p => p.status !== "quitado" && p.status !== "sem_direito" && (p.saldo > 0));
+      b("#p-per").innerHTML = ps.map(p => `<option value="${p.aquisitivoInicio}">${fmt(p.aquisitivoInicio)} a ${fmt(p.aquisitivoFim)} · saldo ${p.saldo} · ${STP[p.status][0]}${p.status === "a_vencer" ? ", conceder até " + fmt(p.concessivoFim) : ""}</option>`).join("") || `<option value="">Sem saldo disponível</option>`;
+      const pend = ps.find(p => p.status !== "em_aquisicao"); if (pend) b("#p-per").value = pend.aquisitivoInicio; };
+    let ultimo = { erros: [], avisos: [] };
+    const validar = () => { const f = fichaAt(); if (!f) return; const prog = { periodo: b("#p-per").value, inicio: b("#p-ini").value, dias: +b("#p-dias").value, abono: +b("#p-ab").value || 0, concordancia: b("#p-conc").checked };
+      ultimo = b("#p-ini").value ? Motor.validarProgramacao(prog, { colab: f.c, periodos: f.per, programacoes: f.progs, feriados: S.X.feriados, hoje, config: S.X.cfg }) : { erros: [], avisos: [] };
+      let cob = [];
+      if (prog.inicio && !ultimo.erros.length && f.c.unidade_id) { const fim = U.addDays(prog.inicio, prog.dias - 1); const tmp = S.D.progs.concat([{ id: "_novo", colaborador_id: f.c.id, inicio: prog.inicio, fim, dias: prog.dias, status: "programada" }]);
+        const eqs = S.X.caminho(f.c.unidade_id).filter(u => u.ativo && (u.id === f.c.unidade_id || (u.min_presentes != null && u.min_presentes !== ""))).map(u => ({ id: u.id, nome: S.X.nomeCaminho(u.id), min_presentes: u.min_presentes }));
+        cob = Motor.conflitosCobertura(S.D.colabs.map(S.X.comCaminho), tmp, eqs, S.X.cfg, prog.inicio, fim).filter(k => k.programacoes.includes("_novo")); }
+      const avisos = ultimo.avisos.concat(cob.map(k => `Cobertura: ${k.ausentes} de ${k.membros} de ${k.equipe} fora entre ${fmt(k.inicio)} e ${fmt(k.fim)}.`));
+      ultimo.avisosTodos = avisos;
+      b("#pv").innerHTML = (prog.inicio ? `<div class="msg info">Férias de <b>${fmt(prog.inicio)}</b> a <b>${fmt(U.addDays(prog.inicio, prog.dias - 1))}</b> · retorno em ${fmt(U.addDays(prog.inicio, prog.dias))} · avisar até <b>${fmt(U.addDays(prog.inicio, -30))}</b> · pagar até <b>${fmt(U.addDays(prog.inicio, -2))}</b></div>` : "")
+        + (ultimo.erros.length ? `<div class="msg err"><b>Não é possível salvar:</b><ul>${ultimo.erros.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "")
+        + (avisos.length ? `<div class="msg warn"><b>Atenção (exige justificativa):</b><ul>${avisos.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "")
+        + (prog.inicio && !ultimo.erros.length && !avisos.length ? `<div class="msg ok">Programação dentro das regras.</div>` : ""); };
+    b("#p-col").onchange = () => { enchePer(); validar(); }; ["#p-per", "#p-ini", "#p-dias", "#p-ab", "#p-conc"].forEach(s => b(s).addEventListener("input", validar)); b("#p-conc").addEventListener("change", validar);
+    enchePer(); validar();
+    b("#ff").onsubmit = async e => { e.preventDefault(); validar(); const f = fichaAt();
+      if (!b("#p-ini").value) { toast("Informe o início.", true); return; }
+      if (ultimo.erros.length) { toast("Corrija os itens em vermelho.", true); return; }
+      const just = b("#p-just").value.trim(); if (ultimo.avisosTodos.length && !just) { toast("Escreva a justificativa para os avisos.", true); b("#p-just").focus(); return; }
+      const row = { empresa_id: S.emp.id, colaborador_id: f.c.id, periodo: b("#p-per").value, inicio: b("#p-ini").value, dias: +b("#p-dias").value, abono: +b("#p-ab").value || 0, concordancia: b("#p-conc").checked,
+        justificativa: ultimo.avisosTodos.length ? (just + " | Avisos: " + ultimo.avisosTodos.join(" / ")) : (just || null), obs: b("#p-obs").value.trim() || null };
+      if (await salvar(() => q(sb.from("programacoes").insert(row)), "Férias programadas")) close(); };
+  });
+}
+function vFerias(el) {
+  const F = S.filtro; const st = F.stp || "ativas"; const hoje = S.X.hoje;
+  const ids = new Set(fichasFiltradas(true).map(f => f.c.id));
+  const L = S.D.progs.filter(p => ids.has(p.colaborador_id)).map(p => Object.assign({ st: progStatus(p) }, p))
+    .filter(p => st === "todas" ? true : st === "ativas" ? (p.st === "programada" || p.st === "em_gozo") : p.st === st)
+    .filter(p => (!F.de || p.fim >= F.de) && (!F.ate || p.inicio <= F.ate)).sort((a, b) => a.inicio.localeCompare(b.inicio) * (st === "realizada" ? -1 : 1));
+  el.innerHTML = `<div class="head"><h1>Férias</h1><div class="row">${pode() ? `<button class="btn" id="bCol">Férias coletivas</button><button class="btn pri" id="bNova">+ Programar férias</button>` : ""}</div></div>
+  ${filtroHTML({ busca: true, periodo: true, extra: `<label class="f" for="fStp">Situação<select id="fStp">${[["ativas", "Programadas e em férias"], ["programada", "Programadas"], ["em_gozo", "Em férias agora"], ["realizada", "Realizadas"], ["cancelada", "Canceladas"], ["todas", "Todas"]].map(([k, l]) => `<option value="${k}" ${st === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>` })}
+  <div class="panel scroll" style="padding:0"><table><thead><tr><th>Colaborador</th><th>Departamento</th><th>Período de férias</th><th class="n">Dias</th><th>Aviso</th><th>Pagamento</th><th>Situação</th></tr></thead><tbody>
+  ${L.map(p => { const f = S.X.fichas.get(p.colaborador_id); const prazo = U.addDays(p.inicio, -30); const avisoAtras = !p.aviso_em && p.st === "programada" && prazo < hoje;
+    return `<tr class="click" tabindex="0" data-col="${p.colaborador_id}"><td><b>${esc(f.c.nome)}</b></td><td>${esc(f.dep?.nome || "—")}</td><td class="num">${fmt(p.inicio)} a ${fmt(p.fim)}</td><td class="n">${p.dias}${p.abono ? "+" + p.abono : ""}</td>
+    <td>${p.aviso_em ? `<span class="pill p-ok">${fmt(p.aviso_em)}</span>` : p.st === "programada" ? `<span class="pill ${avisoAtras ? "p-crit" : "p-att"}">até ${fmt(prazo)}</span>` : "—"}</td><td>${p.pagamento_ok ? `<span class="pill p-ok">OK</span>` : p.st === "programada" ? `<span class="pill p-att">até ${fmt(U.addDays(p.inicio, -2))}</span>` : "—"}</td><td><span class="pill ${STPROG[p.st][1]}">${STPROG[p.st][0]}</span></td></tr>`; }).join("") || `<tr><td colspan="7" class="muted">Nenhuma férias com esses filtros.</td></tr>`}</tbody></table></div>`;
+  ligarFiltros(el, () => vFerias(el)); el.querySelector("#fStp").onchange = e => { F.stp = e.target.value; vFerias(el); };
+  el.querySelectorAll("[data-col]").forEach(r => { r.onclick = () => fichaColab(r.dataset.col); r.onkeydown = e => { if (e.key === "Enter") r.click(); }; });
+  if (pode()) { el.querySelector("#bNova").onclick = () => formFerias(); el.querySelector("#bCol").onclick = feriasColetivas; }
+}
+function feriasColetivas() {
+  modal(`<h2>Férias coletivas</h2><p class="small muted" style="margin:0">Até 2 períodos por ano, nenhum com menos de 10 dias. Comunicar o Ministério do Trabalho e o sindicato com 15 dias de antecedência (CLT art. 139). Quem tem menos de 12 meses recebe proporcionais e inicia novo período (art. 140): o sistema sinaliza esses casos para validação.</p>
+  <label class="f" for="k-uni">Quem entra<select id="k-uni"><option value="__todos">Empresa inteira</option>${opcoesUnidade("").replace('<option value="">— escolha —</option>', "")}</select></label>
+  <div class="filters"><label class="f" for="k-ini">Início<input id="k-ini" type="date"></label><label class="f" for="k-dias">Dias<input id="k-dias" type="number" min="10" max="30" value="10"></label></div>
+  <label class="f" for="k-just">Justificativa / comunicação feita<textarea id="k-just" placeholder="Ex.: comunicado ao sindicato em 01/12"></textarea></label><div id="kv"></div>
+  <div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn" id="kPrev">Conferir</button><button class="btn pri" id="kOk" disabled>Registrar para os aptos</button></div>`, (bg, close) => {
+    const b = s => bg.querySelector(s); let aptos = [];
+    ["#k-uni", "#k-ini", "#k-dias"].forEach(s => b(s).addEventListener("input", () => { aptos = []; b("#kOk").disabled = true; b("#kv").innerHTML = `<p class="small muted">Dados alterados: toque em Conferir de novo.</p>`; }));
+    b("#kPrev").onclick = () => { const uni = b("#k-uni").value, ini = b("#k-ini").value, dias = +b("#k-dias").value; if (!ini || dias < 10) { toast("Informe início e no mínimo 10 dias.", true); return; }
+      const alvo = [...S.X.fichas.values()].filter(f => f.c.situacao !== "desligado" && f.c.admissao && (uni === "__todos" || S.X.caminho(f.c.unidade_id).some(u => u.id === uni)));
+      aptos = []; const rows = alvo.map(f => { const per = f.per.find(p => p.saldo >= dias && p.status !== "quitado" && p.status !== "sem_direito");
+        if (!per) return `<tr><td>${esc(f.c.nome)}</td><td><span class="pill p-high">Sem saldo suficiente / menos de 12 meses: validar (art. 140)</span></td></tr>`;
+        const v = Motor.validarProgramacao({ periodo: per.aquisitivoInicio, inicio: ini, dias, abono: 0, concordancia: true }, { colab: f.c, periodos: f.per, programacoes: f.progs, feriados: S.X.feriados, hoje: S.X.hoje, config: S.X.cfg });
+        if (v.erros.length) return `<tr><td>${esc(f.c.nome)}</td><td><span class="pill p-crit">${esc(v.erros[0])}</span></td></tr>`;
+        aptos.push({ f, per, avisos: v.avisos }); return `<tr><td>${esc(f.c.nome)}</td><td><span class="pill p-ok">Apto</span> ${v.avisos.length ? `<span class="small">${esc(v.avisos.join(" "))}</span>` : ""}</td></tr>`; });
+      b("#kv").innerHTML = `<div class="scroll"><table><tbody>${rows.join("") || `<tr><td class="muted">Ninguém nesse grupo.</td></tr>`}</tbody></table></div><p class="small">${aptos.length} apto(s) de ${alvo.length}.</p>`; b("#kOk").disabled = !aptos.length; };
+    b("#kOk").onclick = async () => { const just = b("#k-just").value.trim(); if (!just) { toast("Registre a justificativa/comunicação.", true); return; }
+      const ini = b("#k-ini").value, dias = +b("#k-dias").value;
+      const rows = aptos.map(a => ({ empresa_id: S.emp.id, colaborador_id: a.f.c.id, periodo: a.per.aquisitivoInicio, inicio: ini, dias, coletiva: true, concordancia: true, justificativa: just + (a.avisos.length ? " | Avisos: " + a.avisos.join(" / ") : "") }));
+      if (await salvar(() => q(sb.from("programacoes").insert(rows)), `Férias coletivas registradas para ${rows.length} colaborador(es)`)) close(); };
+  });
+}
+
+// ---------- CALENDÁRIO ----------
+function vCalendario(el) {
+  const F = S.filtro; const hoje = S.X.hoje; const ym = F.mes || hoje.slice(0, 7); const modo = F.calModo || "mes";
+  const ids = new Set(fichasFiltradas().map(f => f.c.id));
+  const progs = S.D.progs.filter(p => p.status !== "cancelada" && ids.has(p.colaborador_id));
+  const nav = `<div class="row"><button class="btn sm" id="cPrev" aria-label="Anterior">◀</button><b style="min-width:150px;text-align:center">${modo === "mes" ? MESES_L[+ym.slice(5) - 1] + " " + ym.slice(0, 4) : ym.slice(0, 4)}</b><button class="btn sm" id="cNext" aria-label="Próximo">▶</button><button class="btn sm" id="cHoje">Hoje</button>
+    <select id="cModo" aria-label="Visão" style="width:auto"><option value="mes" ${modo === "mes" ? "selected" : ""}>Mensal</option><option value="ano" ${modo === "ano" ? "selected" : ""}>Anual por departamento</option></select></div>`;
+  let corpo = "";
+  if (modo === "mes") {
+    const [y, m] = ym.split("-").map(Number); const prim = `${ym}-01`; const desl = U.weekday(prim); const dias = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const fer = new Map(S.D.feriados.map(f => [f.data, f.descricao])); const cells = [];
+    for (let i = 0; i < desl; i++) cells.push(`<div class="d out"></div>`);
+    for (let d = 1; d <= dias; d++) { const ds = `${ym}-${String(d).padStart(2, "0")}`; const fora = progs.filter(p => p.inicio <= ds && p.fim >= ds);
+      cells.push(`<div class="d ${ds === hoje ? "today" : ""} ${fer.has(ds) ? "hol" : ""}"><b>${d}</b>${fer.has(ds) ? `<span class="small">${esc(fer.get(ds))}</span>` : ""}${fora.slice(0, 4).map(p => `<span class="chip" title="${esc(colabNome(p.colaborador_id))}">${esc(colabNome(p.colaborador_id).split(" ")[0])}</span>`).join("")}${fora.length > 4 ? `<span class="small">+${fora.length - 4}</span>` : ""}</div>`); }
+    corpo = `<div class="panel"><div class="cal">${["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(x => `<div class="dw">${x}</div>`).join("")}${cells.join("")}</div></div>
+    <div class="panel"><h2>Férias neste mês</h2><div class="scroll"><table><tbody>${progs.filter(p => p.inicio.slice(0, 7) <= ym && p.fim.slice(0, 7) >= ym).map(p => `<tr class="click" data-col="${p.colaborador_id}"><td>${esc(colabNome(p.colaborador_id))}</td><td>${esc(S.X.fichas.get(p.colaborador_id).dep?.nome || "")}</td><td class="num">${fmt(p.inicio)} a ${fmt(p.fim)}</td></tr>`).join("") || `<tr><td class="muted">Ninguém de férias neste mês.</td></tr>`}</tbody></table></div></div>`;
+  } else {
+    const y = ym.slice(0, 4); const deps = S.D.unidades.filter(u => u.tipo === "departamento" && u.ativo);
+    const cel = (dep, k) => { const mm = `${y}-${String(k + 1).padStart(2, "0")}`; return new Set(progs.filter(p => p.inicio.slice(0, 7) <= mm && p.fim.slice(0, 7) >= mm && S.X.fichas.get(p.colaborador_id).deptoId === dep).map(p => p.colaborador_id)).size; };
+    corpo = `<div class="panel scroll"><table><thead><tr><th>Departamento</th>${MESES.map(m => `<th class="n">${m}</th>`).join("")}</tr></thead><tbody>${deps.map(d => `<tr><td>${esc(d.nome)}</td>${MESES.map((_, k) => { const n = cel(d.id, k); return `<td class="n" style="${n ? `background:rgba(59,140,67,${Math.min(.15 + n * .12, .8)});color:${n > 4 ? "#fff" : "inherit"}` : ""}">${n || ""}</td>`; }).join("")}</tr>`).join("")}</tbody></table><p class="small muted">Número de pessoas com férias em cada mês.</p></div>`;
+  }
+  el.innerHTML = `<div class="head"><h1>Calendário</h1>${nav}</div>${filtroHTML()}${corpo}`;
+  ligarFiltros(el, () => vCalendario(el));
+  const mov = k => { if (modo === "mes") { const d = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5) - 1 + k, 1)); F.mes = d.toISOString().slice(0, 7); } else F.mes = `${+ym.slice(0, 4) + k}${ym.slice(4)}`; vCalendario(el); };
+  el.querySelector("#cPrev").onclick = () => mov(-1); el.querySelector("#cNext").onclick = () => mov(1); el.querySelector("#cHoje").onclick = () => { F.mes = hoje.slice(0, 7); vCalendario(el); };
+  el.querySelector("#cModo").onchange = e => { F.calModo = e.target.value; vCalendario(el); };
+  el.querySelectorAll("[data-col]").forEach(r => r.onclick = () => fichaColab(r.dataset.col));
+}
+
+// ---------- PLANEJAMENTO / COBERTURA ----------
+function vPlanejamento(el) {
+  const hoje = S.X.hoje; const confl = S.X.alertas.filter(a => a.key.startsWith("cob:")).filter(a => { if (!S.filtro.dep) return true; return S.X.caminho(a.equipe_id)[0]?.id === S.filtro.dep; });
+  const colabsM = S.D.colabs.map(S.X.comCaminho);
+  const equipes = S.D.unidades.filter(u => u.ativo).map(u => ({ id: u.id, nome: S.X.nomeCaminho(u.id), min_presentes: u.min_presentes }));
+  const meses = []; for (let k = 0; k < 12; k++) { const d = new Date(Date.UTC(+hoje.slice(0, 4), +hoje.slice(5, 7) - 1 + k, 1)); const m = d.toISOString().slice(0, 7); const n = new Set(S.D.progs.filter(p => p.status !== "cancelada" && p.inicio.slice(0, 7) <= m && p.fim.slice(0, 7) >= m && (!S.filtro.dep || S.X.fichas.get(p.colaborador_id)?.deptoId === S.filtro.dep)).map(p => p.colaborador_id)).size; meses.push([`${MESES[d.getUTCMonth()]}/${String(d.getUTCFullYear()).slice(2)}`, n]); }
+  const pendSemProg = fichasFiltradas().filter(f => f.pend.length).sort((a, b) => (a.prox || "9").localeCompare(b.prox || "9"));
+  el.innerHTML = `<div class="head"><h1>Planejamento e cobertura</h1></div>
+  <p class="small muted">O sistema avisa quando muitas pessoas da mesma equipe ficam fora ao mesmo tempo. Padrão: no máximo ${Math.round(S.X.cfg.maxAusenciaPct * 100)}% da equipe. Em <a href="#/estrutura">Estrutura</a> você define o mínimo de pessoas presentes em cada setor ou equipe. As sugestões não substituem a sua decisão.</p>
+  ${filtroHTML()}
+  <div class="panel"><h2>Conflitos de cobertura</h2><div class="list">${confl.map(a => { const pid = a.programacoes[a.programacoes.length - 1]; const p = S.D.progs.find(x => x.id === pid);
+    let sug = null; if (p) { const f = S.X.fichas.get(p.colaborador_id); const per = f.per.find(x => x.aquisitivoInicio === p.periodo); sug = Motor.sugerirNovaData(p, { colabs: colabsM, programacoes: S.D.progs, equipes, equipe_id: a.equipe_id, feriados: S.X.feriados, periodo: per, config: S.X.cfg }); }
+    const t = S.X.trat.get(a.key);
+    return `<div class="alert a-alto"><b>${esc(a.detalhe)}</b><span class="small">Envolvidos: ${a.programacoes.map(id => { const x = S.D.progs.find(z => z.id === id); return x ? esc(colabNome(x.colaborador_id)) + ` (${fmt(x.inicio)}–${fmt(x.fim)})` : ""; }).join(", ")}</span>
+    ${sug ? `<span class="small"><b>Sugestão:</b> mover ${esc(colabNome(p.colaborador_id))} para ${fmt(sug.inicio)} a ${fmt(sug.fim)}.</span>` : `<span class="small muted">Sem sugestão automática dentro do período concessivo.</span>`}
+    ${t ? `<span class="small"><b>Decisão registrada:</b> ${esc(t.nota)}</span>` : pode() ? `<div class="row"><button class="btn sm pri" data-dec="${esc(a.key)}">Registrar decisão</button></div>` : ""}</div>`; }).join("") || `<div class="msg ok">Nenhum conflito de cobertura nos próximos 12 meses.</div>`}</div></div>
+  <div class="grid2"><div class="panel"><h2>Pessoas de férias por mês</h2>${barras(meses)}</div>
+  <div class="panel"><h2>Pendentes de programação</h2><div class="scroll"><table><tbody>${pendSemProg.slice(0, 15).map(f => `<tr class="click" data-col="${f.c.id}"><td>${esc(f.c.nome)}</td><td>${esc(f.dep?.nome || "")}</td><td class="n">${f.pend.reduce((s, p) => s + p.saldo, 0)} dias</td><td class="num">avisar até ${fmt(f.prox)}</td></tr>`).join("") || `<tr><td class="muted">Ninguém pendente.</td></tr>`}</tbody></table></div></div></div>`;
+  ligarFiltros(el, () => vPlanejamento(el));
+  el.querySelectorAll("[data-col]").forEach(r => r.onclick = () => fichaColab(r.dataset.col));
+  el.querySelectorAll("[data-dec]").forEach(b => b.onclick = () => modal(`<h2>Registrar decisão</h2><label class="f" for="dn">Decisão e justificativa<textarea id="dn" placeholder="Ex.: mantido; contratado temporário para cobrir"></textarea></label><div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="ok">Salvar</button></div>`,
+    (bg, close) => bg.querySelector("#ok").onclick = async () => { const n = bg.querySelector("#dn").value.trim(); if (!n) { toast("Descreva a decisão.", true); return; } close(); await salvar(() => q(sb.from("alertas_tratados").upsert({ empresa_id: S.emp.id, chave: b.dataset.dec, nota: n })), "Decisão registrada"); }));
+}
+
+// ---------- ESTRUTURA ----------
+function vEstrutura(el) {
+  const F = S.filtro; const mostrarInat = F.inat === "1";
+  const filhos = pid => S.D.unidades.filter(u => (u.parent_id || null) === (pid || null) && (mostrarInat || u.ativo)).sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome));
+  const cont = id => [...S.X.fichas.values()].filter(f => f.c.situacao !== "desligado" && S.X.caminho(f.c.unidade_id).some(u => u.id === id)).length;
+  const tipoFilho = { departamento: "setor", setor: "equipe" };
+  const no = u => `<li><div class="node ${u.ativo ? "" : "inat"}"><b>${esc(u.nome)}</b><span class="pill p-mute">${u.tipo}</span><span class="small muted">${cont(u.id)} pessoa(s)${u.min_presentes != null ? ` · mínimo ${u.min_presentes} presentes` : ""}</span>
+    ${pode() ? `<span class="row" style="margin-left:auto">${tipoFilho[u.tipo] && u.ativo ? `<button class="btn sm" data-add="${u.id}">+ ${tipoFilho[u.tipo]}</button>` : ""}<button class="btn sm" data-edit="${u.id}">Editar</button><button class="btn sm" data-ativo="${u.id}">${u.ativo ? "Inativar" : "Reativar"}</button></span>` : ""}</div>
+    ${filhos(u.id).length ? `<ul>${filhos(u.id).map(no).join("")}</ul>` : ""}</li>`;
+  el.innerHTML = `<div class="head"><h1>Estrutura da empresa</h1><div class="row">${pode() ? `<button class="btn pri" id="bDep">+ Departamento</button>` : ""}</div></div>
+  <p class="small muted">Empresa › Departamento › Setor › Equipe › Colaborador. Tudo pode ser criado, renomeado, movido e inativado. Unidades inativas não aparecem nas listas, mas o histórico é mantido.</p>
+  <label class="f inline"><input type="checkbox" id="fInat" ${mostrarInat ? "checked" : ""}> Mostrar inativos</label>
+  <div class="panel tree"><ul>${filhos(null).map(no).join("") || `<li class="muted">Nenhum departamento.</li>`}</ul></div>`;
+  el.querySelector("#fInat").onchange = e => { F.inat = e.target.checked ? "1" : "0"; vEstrutura(el); };
+  if (!pode()) return;
+  el.querySelector("#bDep").onclick = () => formUnidade({ tipo: "departamento" });
+  el.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const p = S.X.uni.get(b.dataset.add); formUnidade({ tipo: tipoFilho[p.tipo], parent_id: p.id }); });
+  el.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => formUnidade(S.X.uni.get(b.dataset.edit)));
+  el.querySelectorAll("[data-ativo]").forEach(b => b.onclick = async () => { const u = S.X.uni.get(b.dataset.ativo);
+    if (u.ativo && cont(u.id) && !(await confirmar(`${u.nome} tem ${cont(u.id)} colaborador(es). Inativar mesmo assim? Eles continuam cadastrados.`, "Inativar"))) return;
+    await salvar(() => q(sb.from("unidades").update({ ativo: !u.ativo }).eq("id", u.id)), u.ativo ? "Inativado" : "Reativado"); });
+}
+function formUnidade(u) {
+  const paiTipo = { setor: "departamento", equipe: "setor" }[u.tipo];
+  const descendentes = id => { const out = new Set([id]); let mud = true; while (mud) { mud = false; S.D.unidades.forEach(x => { if (x.parent_id && out.has(x.parent_id) && !out.has(x.id)) { out.add(x.id); mud = true; } }); } return out; };
+  const proibidos = u.id ? descendentes(u.id) : new Set();
+  const pais = paiTipo ? S.D.unidades.filter(x => x.tipo === paiTipo && (x.ativo || x.id === u.parent_id) && !proibidos.has(x.id)) : [];
+  modal(`<h2>${u.id ? "Editar" : "Novo(a)"} ${u.tipo}</h2><form id="fu" class="list" novalidate><label class="f" for="u-nome">Nome<input id="u-nome" required value="${esc(u.nome)}"></label>
+  ${paiTipo ? `<label class="f" for="u-pai">Fica dentro de<select id="u-pai">${pais.map(p => `<option value="${p.id}" ${p.id === u.parent_id ? "selected" : ""}>${esc(S.X.nomeCaminho(p.id))}</option>`).join("")}</select></label>` : ""}
+  ${u.tipo !== "departamento" ? `<label class="f" for="u-min">Mínimo de pessoas presentes (opcional)<input id="u-min" type="number" min="0" value="${u.min_presentes ?? ""}"></label>` : ""}
+  <label class="f" for="u-ord">Ordem de exibição<input id="u-ord" type="number" value="${u.ordem ?? 0}"></label>
+  <div class="foot"><button type="button" class="btn" data-close>Cancelar</button><button class="btn pri" type="submit">Salvar</button></div></form>`, (bg, close) => {
+    bg.querySelector("#fu").onsubmit = async e => { e.preventDefault(); const v = s => bg.querySelector(s)?.value;
+      const row = { nome: v("#u-nome").trim(), ordem: +v("#u-ord") || 0 }; if (paiTipo) row.parent_id = v("#u-pai") || null; if (u.tipo !== "departamento") row.min_presentes = v("#u-min") === "" ? null : +v("#u-min");
+      if (!row.nome) { toast("Informe o nome.", true); return; } if (paiTipo && !row.parent_id) { toast("Escolha onde fica.", true); return; }
+      if (await salvar(() => u.id ? q(sb.from("unidades").update(row).eq("id", u.id)) : q(sb.from("unidades").insert(Object.assign({ empresa_id: S.emp.id, tipo: u.tipo }, row))), "Estrutura salva")) close(); }; });
+}
+
+// ---------- IMPORTAÇÃO ----------
+const MODELO = [["nome", "matricula", "departamento", "setor", "equipe", "cargo", "admissao", "situacao", "ferias_quitadas_ate", "tipo_contrato"], ["Maria Exemplo", "1001", "Logística", "Motoristas", "", "Motorista", "15/03/2023", "ativo", "", "CLT"]];
+function lerData(v) { if (v == null || v === "") return null; if (v instanceof Date && !isNaN(v)) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate())).toISOString().slice(0, 10);
+  if (typeof v === "number") { const d = new Date(Date.UTC(1899, 11, 30) + v * 864e5); return d.toISOString().slice(0, 10); }
+  const s = String(v).trim(); let m;
+  const real = iso => { const d = new Date(iso + "T00:00:00Z"); return !isNaN(d) && d.toISOString().slice(0, 10) === iso && +iso.slice(0, 4) >= 1900 ? iso : "invalida"; };
+  if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/))) return real(`${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`);
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return real(`${m[1]}-${m[2]}-${m[3]}`); return "invalida"; }
+function importar() {
+  modal(`<h2>Importar colaboradores</h2><p class="small">Planilha Excel (.xlsx) ou CSV com as colunas: <b>nome, matricula, departamento, setor, equipe, cargo, admissao, situacao, ferias_quitadas_ate, tipo_contrato</b>. Departamentos, setores e equipes que não existirem são criados. Matrículas repetidas não são duplicadas.</p>
+  <div class="row"><button class="btn sm" id="iMod">Baixar planilha modelo</button></div>
+  <label class="f" for="iArq">Arquivo<input id="iArq" type="file" accept=".xlsx,.xls,.csv"></label><label class="f inline"><input type="checkbox" id="iAtu"> Atualizar colaboradores que já existem (mesma matrícula)</label>
+  <div id="iRes"></div><div class="foot"><button class="btn" data-close>Fechar</button><button class="btn pri" id="iOk" disabled>Importar</button></div>`, (bg, close) => {
+    const b = s => bg.querySelector(s); let linhas = [];
+    b("#iMod").onclick = () => { const ws = XLSX.utils.aoa_to_sheet(MODELO); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Colaboradores"); XLSX.writeFile(wb, "modelo-colaboradores.xlsx"); };
+    b("#iArq").onchange = async () => { const f = b("#iArq").files[0]; if (!f) return;
+      try { const ehTexto = /\.(csv|txt)$/i.test(f.name); // CSV: tudo como texto, para a data ser lida como dd/mm/aaaa (e não no formato americano)
+        const wb = XLSX.read(await f.arrayBuffer(), { type: "array", cellDates: true, raw: ehTexto }); const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+        const norm = k => String(k).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+        const mapa = { nome: "nome", nomecompleto: "nome", matricula: "matricula", departamento: "departamento", setor: "setor", equipe: "equipe", cargo: "cargo", funcao: "cargo", admissao: "admissao", dataadmissao: "admissao", situacao: "situacao", feriasquitadasate: "ferias_quitadas_ate", tipocontrato: "tipo_contrato" };
+        const existentes = new Map(S.D.colabs.map(c => [String(c.matricula).trim(), c])); const vistos = new Set();
+        linhas = raw.map((r, i) => { const x = {}; for (const k in r) { const m = mapa[norm(k)]; if (m) x[m] = typeof r[k] === "string" ? r[k].trim() : r[k]; }
+          x.linha = i + 2; x.erros = []; x.matricula = String(x.matricula ?? "").trim(); x.admissao = lerData(x.admissao); x.ferias_quitadas_ate = lerData(x.ferias_quitadas_ate);
+          const sit = norm(x.situacao || "ativo"); x.situacao = sit.startsWith("desl") ? "desligado" : sit.startsWith("afast") ? "afastado" : "ativo";
+          if (!x.nome || String(x.nome).length < 2) x.erros.push("nome vazio"); if (!x.matricula) x.erros.push("matrícula vazia");
+          if (!x.admissao) x.erros.push("admissão vazia"); else if (x.admissao === "invalida") x.erros.push("admissão em formato inválido (use dd/mm/aaaa)"); else if (x.admissao > S.X.hoje) x.erros.push("admissão no futuro");
+          if (x.ferias_quitadas_ate === "invalida") x.erros.push("ferias_quitadas_ate inválida");
+          if (!x.departamento) x.erros.push("departamento vazio");
+          if (vistos.has(x.matricula)) x.erros.push("matrícula repetida na planilha"); vistos.add(x.matricula);
+          x.existe = existentes.get(x.matricula); return x; });
+        const ok = linhas.filter(l => !l.erros.length); const novos = ok.filter(l => !l.existe).length, exist = ok.length - novos;
+        b("#iRes").innerHTML = `<div class="msg ${ok.length ? "ok" : "err"}">${linhas.length} linha(s) lidas: <b>${novos}</b> novo(s), <b>${exist}</b> já cadastrado(s), <b>${linhas.length - ok.length}</b> com erro.</div>
+        ${linhas.some(l => l.erros.length) ? `<div class="msg err"><b>Linhas com erro (não serão importadas):</b><ul>${linhas.filter(l => l.erros.length).slice(0, 30).map(l => `<li>Linha ${l.linha}: ${esc(l.erros.join(", "))}</li>`).join("")}</ul></div>` : ""}`;
+        b("#iOk").disabled = !ok.length; }
+      catch (e) { b("#iRes").innerHTML = `<div class="msg err">Não consegui ler o arquivo. Salve como .xlsx ou .csv e tente de novo.</div>`; } };
+    b("#iOk").onclick = async () => { b("#iOk").disabled = true; const atualizar = b("#iAtu").checked; const ok = linhas.filter(l => !l.erros.length && (atualizar || !l.existe));
+      try { const cache = new Map(S.D.unidades.map(u => [`${u.tipo}|${u.parent_id || ""}|${u.nome.toLowerCase()}`, u.id]));
+        const garantir = async (tipo, nome, pai) => { if (!nome) return pai; const k = `${tipo}|${pai || ""}|${String(nome).toLowerCase()}`; if (cache.has(k)) return cache.get(k);
+          const r = await q(sb.from("unidades").insert({ empresa_id: S.emp.id, tipo, nome: String(nome), parent_id: pai || null }).select("id").single()); cache.set(k, r.id); return r.id; };
+        let ins = 0, upd = 0;
+        for (const l of ok) { const dep = await garantir("departamento", l.departamento, null); const set = await garantir("setor", l.setor, dep); const eq = l.setor ? await garantir("equipe", l.equipe, set) : set;
+          const row = { empresa_id: S.emp.id, nome: String(l.nome), matricula: l.matricula, unidade_id: eq, cargo: l.cargo ? String(l.cargo) : null, admissao: l.admissao, situacao: l.situacao, ferias_quitadas_ate: l.ferias_quitadas_ate || null, tipo_contrato: l.tipo_contrato ? String(l.tipo_contrato) : "CLT" };
+          if (l.existe) { await q(sb.from("colaboradores").update(row).eq("id", l.existe.id)); upd++; } else { await q(sb.from("colaboradores").insert(row)); ins++; } }
+        await carregar(); render(); b("#iRes").innerHTML = `<div class="msg ok">Importação concluída: ${ins} cadastrado(s), ${upd} atualizado(s).</div>`; toast("Importação concluída"); }
+      catch (e) { b("#iRes").innerHTML += `<div class="msg err">Erro durante a importação: ${esc(erroMsg(e))}. O que já foi gravado foi mantido.</div>`; await carregar(); render(); } };
+  });
+}
+
+// ---------- RELATÓRIOS ----------
+const RELS = {
+  colaboradores: ["Colaboradores", () => [["Nome", "Matrícula", "Departamento / setor", "Cargo", "Admissão", "Situação", "Saldo (dias)"], ...fichasFiltradas(true).map(f => [f.c.nome, f.c.matricula, f.unidade, f.c.cargo || "", fmt(f.c.admissao), SIT[f.c.situacao], f.saldo])]],
+  departamentos: ["Departamentos", () => { const fs = fichasFiltradas(); return [["Departamento", "Pessoas", "Em férias hoje", "Com pendência", "Vencidas", "Saldo total (dias)"], ...S.D.unidades.filter(u => u.tipo === "departamento" && u.ativo).map(d => { const x = fs.filter(f => f.deptoId === d.id); return [d.nome, x.length, x.filter(f => f.emFerias).length, x.filter(f => f.pend.length).length, x.filter(f => f.vencidos).length, x.reduce((t, f) => t + f.saldo, 0)]; })]; }],
+  pendentes: ["Férias pendentes", () => [["Colaborador", "Departamento", "Período aquisitivo", "Saldo", "Concessivo até", "Avisar até", "Situação"], ...fichasFiltradas().flatMap(f => f.pend.map(p => [f.c.nome, f.dep?.nome || "", `${fmt(p.aquisitivoInicio)} a ${fmt(p.aquisitivoFim)}`, p.saldo, fmt(p.concessivoFim), fmt(p.limiteAviso), STP[p.status][0]])).sort((a, b) => a[5].split("/").reverse().join("").localeCompare(b[5].split("/").reverse().join("")))]],
+  programadas: ["Férias programadas", () => progsRel(["programada", "em_gozo"])],
+  realizadas: ["Férias realizadas", () => progsRel(["realizada"])],
+  saldos: ["Saldos por colaborador", () => [["Colaborador", "Matrícula", "Departamento", "Períodos pendentes", "Saldo (dias)", "Próximo prazo de aviso"], ...fichasFiltradas().map(f => [f.c.nome, f.c.matricula, f.dep?.nome || "", f.pend.length, f.saldo, fmt(f.prox)])]],
+  vencimentos: ["Vencimentos", () => [["Colaborador", "Departamento", "Concessivo até", "Saldo", "Situação"], ...fichasFiltradas().flatMap(f => f.per.filter(p => p.status === "vencido" || (p.status === "a_vencer" && p.saldo > 0)).map(p => [f.c.nome, f.dep?.nome || "", fmt(p.concessivoFim), p.saldo, p.status === "vencido" ? "VENCIDO (em dobro)" : `vence em ${U.diff(S.X.hoje, p.concessivoFim)} dias`]))]],
+  calendario: ["Calendário de férias", () => progsRel(["programada", "em_gozo", "realizada"])],
+  conflitos: ["Conflitos de cobertura", () => [["Equipe / setor", "Situação", "Envolvidos", "Decisão"], ...S.X.alertas.filter(a => a.key.startsWith("cob:")).map(a => [a.detalhe.split(":")[0], a.detalhe, a.programacoes.map(id => colabNome(S.D.progs.find(p => p.id === id)?.colaborador_id)).join(", "), S.X.trat.get(a.key)?.nota || ""])]],
+  indicadores: ["Indicadores gerenciais", () => { const fs = fichasFiltradas(); const pr = S.D.progs.filter(p => p.status !== "cancelada" && fs.some(f => f.c.id === p.colaborador_id)); return [["Indicador", "Valor"], ["Colaboradores", fs.length], ["Afastados", fs.filter(f => f.afastado).length], ["Em férias hoje", fs.filter(f => f.emFerias).length], ["Com férias pendentes", fs.filter(f => f.pend.length).length], ["Com férias vencidas", fs.filter(f => f.vencidos).length], ["Dias de saldo", fs.reduce((t, f) => t + f.saldo, 0)], ["Férias programadas", pr.filter(p => progStatus(p) === "programada").length], ["Férias realizadas no ano", pr.filter(p => progStatus(p) === "realizada" && p.inicio.startsWith(S.X.hoje.slice(0, 4))).length], ["Alertas críticos em aberto", S.X.abertos.filter(a => a.nivel === "critico").length], ["Conflitos de cobertura", S.X.alertas.filter(a => a.key.startsWith("cob:")).length]]; }],
+};
+function progsRel(sts) { const F = S.filtro; const ids = new Set(fichasFiltradas(true).map(f => f.c.id));
+  return [["Colaborador", "Departamento", "Início", "Fim", "Dias", "Abono", "Aviso", "Pagamento", "Situação"], ...S.D.progs.filter(p => ids.has(p.colaborador_id) && sts.includes(progStatus(p)) && (!F.de || p.fim >= F.de) && (!F.ate || p.inicio <= F.ate)).sort((a, b) => a.inicio.localeCompare(b.inicio))
+    .map(p => { const f = S.X.fichas.get(p.colaborador_id); return [f.c.nome, f.dep?.nome || "", fmt(p.inicio), fmt(p.fim), p.dias, p.abono, p.aviso_em ? fmt(p.aviso_em) : "pendente", p.pagamento_ok ? "ok" : "pendente", STPROG[progStatus(p)][0]]; })]; }
+function descFiltros() { const F = S.filtro; const p = []; if (F.dep) p.push("Departamento: " + S.X.uni.get(F.dep)?.nome); if (F.uni) p.push("Setor/equipe: " + S.X.nomeCaminho(F.uni)); if (F.de) p.push("De " + fmt(F.de)); if (F.ate) p.push("Até " + fmt(F.ate)); if (F.busca) p.push("Busca: " + F.busca); return p.join(" · ") || "Sem filtros"; }
+function vRelatorios(el) {
+  const F = S.filtro; const k = F.rel || "pendentes"; const [titulo, fn] = RELS[k]; const dados = fn();
+  el.innerHTML = `<div class="head"><h1>Relatórios</h1><div class="row"><button class="btn" id="rXls">Exportar Excel</button><button class="btn pri" id="rPdf">Exportar PDF</button></div></div>
+  <label class="f" for="rSel" style="max-width:340px">Relatório<select id="rSel">${Object.entries(RELS).map(([kk, [t]]) => `<option value="${kk}" ${kk === k ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+  ${filtroHTML({ busca: true, periodo: ["programadas", "realizadas", "calendario"].includes(k) })}
+  <div class="panel scroll" style="padding:0"><table><thead><tr>${dados[0].map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${dados.slice(1).map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${dados[0].length}" class="muted">Sem dados.</td></tr>`}</tbody></table></div><p class="small muted">${dados.length - 1} linha(s) · ${esc(descFiltros())}</p>`;
+  ligarFiltros(el, () => vRelatorios(el)); el.querySelector("#rSel").onchange = e => { F.rel = e.target.value; vRelatorios(el); };
+  const nomeArq = `${titulo.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-")}-${S.X.hoje}`;
+  const emissao = () => new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  el.querySelector("#rXls").onclick = () => { const aoa = [[`${S.emp.nome} — ${titulo}`], [`Emitido em ${emissao()}`], [`Filtros: ${descFiltros()}`], [], ...dados, [], [`Desenvolvido por Leonardo Valdez`]];
+    const ws = XLSX.utils.aoa_to_sheet(aoa); ws["!cols"] = dados[0].map(() => ({ wch: 22 })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, titulo.slice(0, 30)); XLSX.writeFile(wb, nomeArq + ".xlsx"); };
+  el.querySelector("#rPdf").onclick = () => { const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: dados[0].length > 6 ? "landscape" : "portrait", unit: "pt", format: "a4" }); const W = doc.internal.pageSize.getWidth();
+    try { doc.addImage(LOGO, "JPEG", 36, 24, 150, 53); } catch (e) {}
+    doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(43, 110, 51); doc.text(titulo, W - 36, 44, { align: "right" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(80); doc.text(S.emp.nome, W - 36, 58, { align: "right" }); doc.text(`Emitido em ${emissao()}`, W - 36, 70, { align: "right" }); doc.text(`Filtros: ${descFiltros()}`, 36, 96);
+    doc.autoTable({ head: [dados[0]], body: dados.slice(1).map(r => r.map(String)), startY: 106, styles: { fontSize: 8, cellPadding: 4 }, headStyles: { fillColor: [43, 110, 51] }, alternateRowStyles: { fillColor: [243, 246, 241] },
+      didDrawPage: () => { const H = doc.internal.pageSize.getHeight(); doc.setFontSize(8); doc.setTextColor(120); doc.text(`Desenvolvido por Leonardo Valdez · Página ${doc.internal.getNumberOfPages()}`, W / 2, H - 18, { align: "center" }); } });
+    doc.save(nomeArq + ".pdf"); };
+}
+
+// ---------- CONFIGURAÇÕES ----------
+const FERIADOS_NAC = [["2026-01-01", "Confraternização Universal"], ["2026-04-03", "Paixão de Cristo"], ["2026-04-21", "Tiradentes"], ["2026-05-01", "Dia do Trabalho"], ["2026-09-07", "Independência"], ["2026-10-12", "Nossa Senhora Aparecida"], ["2026-11-02", "Finados"], ["2026-11-15", "Proclamação da República"], ["2026-11-20", "Consciência Negra"], ["2026-12-25", "Natal"],
+  ["2027-01-01", "Confraternização Universal"], ["2027-03-26", "Paixão de Cristo"], ["2027-04-21", "Tiradentes"], ["2027-05-01", "Dia do Trabalho"], ["2027-09-07", "Independência"], ["2027-10-12", "Nossa Senhora Aparecida"], ["2027-11-02", "Finados"], ["2027-11-15", "Proclamação da República"], ["2027-11-20", "Consciência Negra"], ["2027-12-25", "Natal"]];
+async function vConfig(el) {
+  const c = S.X.cfg; const admin = S.papel === "admin";
+  el.innerHTML = `<div class="head"><h1>Configurações</h1></div>
+  <div class="grid2"><div class="panel list"><h2>Empresa</h2><label class="f" for="e-nome">Nome<input id="e-nome" value="${esc(S.emp.nome)}" ${admin ? "" : "disabled"}></label><label class="f" for="e-cnpj">CNPJ<input id="e-cnpj" value="${esc(S.emp.cnpj || "")}" ${admin ? "" : "disabled"}></label>
+    <h2>Antecedência dos alertas</h2>
+    <label class="f" for="e-ap">Começar a alertar “programar férias” quantos dias antes do último dia para avisar<input id="e-ap" type="number" min="15" max="365" value="${c.antecedenciaProgramar}" ${admin ? "" : "disabled"}></label>
+    <label class="f" for="e-aa">Alertar “avisar colaborador” quantos dias antes do prazo de aviso<input id="e-aa" type="number" min="1" max="120" value="${c.antecedenciaAviso}" ${admin ? "" : "disabled"}></label>
+    <label class="f" for="e-as">Listar “vai sair de férias” com quantos dias de antecedência<input id="e-as" type="number" min="1" max="120" value="${c.antecedenciaSaida}" ${admin ? "" : "disabled"}></label>
+    <label class="f" for="e-apg">Alertar pagamento quantos dias antes do prazo<input id="e-apg" type="number" min="1" max="60" value="${c.antecedenciaPagamento}" ${admin ? "" : "disabled"}></label>
+    <label class="f" for="e-cob">Máximo da equipe de férias ao mesmo tempo (%)<input id="e-cob" type="number" min="5" max="100" value="${Math.round(c.maxAusenciaPct * 100)}" ${admin ? "" : "disabled"}></label>
+    <label class="f" for="e-dsr">Repouso semanal<select id="e-dsr" ${admin ? "" : "disabled"}><option value="0" ${String(c.dsr) === "0" ? "selected" : ""}>Domingo</option><option value="0,6" ${String(c.dsr) === "0,6" ? "selected" : ""}>Sábado e domingo</option></select></label>
+    ${admin ? `<button class="btn pri" id="eSalvar">Salvar configurações</button>` : ""}</div>
+  <div class="panel list"><h2>Feriados</h2><p class="small muted" style="margin:0">Usados na regra que proíbe iniciar férias nos 2 dias antes de feriado (CLT art. 134, §3º). Inclua os feriados municipais e estaduais.</p>
+    ${pode() ? `<div class="row"><input type="date" id="fd" style="max-width:170px" aria-label="Data"><input id="fdesc" placeholder="Descrição" style="max-width:220px" aria-label="Descrição"><button class="btn" id="fAdd">Adicionar</button></div><button class="btn sm" id="fNac">Adicionar feriados nacionais 2026 e 2027</button>` : ""}
+    <div class="scroll"><table><tbody>${S.D.feriados.map(f => `<tr><td class="num">${fmt(f.data)}</td><td>${esc(f.descricao)}</td><td>${pode() ? `<button class="btn sm" data-delf="${f.id}">Remover</button>` : ""}</td></tr>`).join("") || `<tr><td class="muted">Nenhum feriado cadastrado.</td></tr>`}</tbody></table></div></div></div>
+  ${admin ? `<div class="panel list" id="usuarios"><h2>Usuários com acesso</h2><p class="muted small">Carregando…</p></div>` : ""}
+  <div class="panel list"><h2>Cópia de segurança</h2><p class="small">O banco de dados faz backup automático diário (plano Pro do Supabase). Aqui você também pode baixar uma cópia completa dos dados da empresa em Excel.</p><div><button class="btn" id="bBk">Baixar cópia completa (Excel)</button></div></div>`;
+  if (admin) el.querySelector("#eSalvar").onclick = () => { const v = s => +el.querySelector(s).value;
+    const faixa = [["#e-ap", 15, 365, "Programar férias"], ["#e-aa", 1, 120, "Avisar colaborador"], ["#e-as", 1, 120, "Vai sair de férias"], ["#e-apg", 1, 60, "Pagamento"], ["#e-cob", 5, 100, "Máximo da equipe"]].filter(([s, a, z]) => { const t = el.querySelector(s).value; return t === "" || !Number.isInteger(+t) || +t < a || +t > z; });
+    if (faixa.length) { toast(`Valor inválido em: ${faixa.map(f => `${f[3]} (de ${f[1]} a ${f[2]})`).join(", ")}.`, true); return; }
+    if (el.querySelector("#e-nome").value.trim().length < 2) { toast("Informe o nome da empresa.", true); return; }
+    const cfg = { antecedenciaProgramar: v("#e-ap"), antecedenciaAviso: v("#e-aa"), antecedenciaSaida: v("#e-as"), antecedenciaPagamento: v("#e-apg"), maxAusenciaPct: Math.min(1, Math.max(.05, v("#e-cob") / 100)), dsr: el.querySelector("#e-dsr").value.split(",").map(Number) };
+    salvar(() => q(sb.from("empresas").update({ nome: el.querySelector("#e-nome").value.trim(), cnpj: el.querySelector("#e-cnpj").value.trim() || null, config: cfg }).eq("id", S.emp.id)).then(() => { S.empresas.find(e => e.id === S.emp.id).nome = el.querySelector("#e-nome").value.trim(); }), "Configurações salvas"); };
+  if (pode()) { el.querySelector("#fAdd").onclick = () => { const d = el.querySelector("#fd").value, t = el.querySelector("#fdesc").value.trim(); if (!d || !t) { toast("Informe data e descrição.", true); return; } salvar(() => q(sb.from("feriados").insert({ empresa_id: S.emp.id, data: d, descricao: t })), "Feriado adicionado"); };
+    el.querySelector("#fNac").onclick = () => { const ja = new Set(S.D.feriados.map(f => f.data)); const rows = FERIADOS_NAC.filter(([d]) => !ja.has(d)).map(([data, descricao]) => ({ empresa_id: S.emp.id, data, descricao })); if (!rows.length) { toast("Já cadastrados."); return; } salvar(() => q(sb.from("feriados").insert(rows)), `${rows.length} feriados adicionados. Confira os municipais.`); };
+    el.querySelectorAll("[data-delf]").forEach(b => b.onclick = () => salvar(() => q(sb.from("feriados").delete().eq("id", b.dataset.delf)), "Feriado removido")); }
+  el.querySelector("#bBk").onclick = () => { const wb = XLSX.utils.book_new(); const add = (n, rows) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [{}]), n);
+    add("colaboradores", S.D.colabs); add("estrutura", S.D.unidades); add("ferias", S.D.progs); add("ausencias", S.D.aus); add("feriados", S.D.feriados); add("alertas_tratados", S.D.tratados);
+    XLSX.writeFile(wb, `backup-ferias-${S.X.hoje}.xlsx`); };
+  if (admin) carregarUsuarios(el.querySelector("#usuarios"));
+}
+async function carregarUsuarios(box) {
+  try { const [mem, conv] = await Promise.all([q(sb.from("membros").select("*").eq("empresa_id", S.emp.id)), q(sb.from("convites").select("*").eq("empresa_id", S.emp.id))]);
+    box.innerHTML = `<h2>Usuários com acesso</h2><div class="scroll"><table><thead><tr><th>E-mail</th><th>Perfil</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${mem.map(m => `<tr><td>${esc(m.email || "")}</td><td>${PAPEL[m.papel]}</td><td>${m.ativo ? `<span class="pill p-ok">Ativo</span>` : `<span class="pill p-mute">Removido</span>`}</td><td>${m.ativo && m.user_id !== S.user.id ? `<button class="btn sm warn" data-rem="${m.user_id}">Remover acesso</button>` : ""}</td></tr>`).join("")}
+    ${conv.map(c => `<tr><td>${esc(c.email)}</td><td>${PAPEL[c.papel]}</td><td><span class="pill p-att">Aguardando criar conta</span></td><td><button class="btn sm" data-canc="${esc(c.email)}">Cancelar convite</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="filters"><label class="f" for="uEm">E-mail<input id="uEm" type="email"></label><label class="f" for="uPa">Perfil<select id="uPa">${Object.entries(PAPEL).map(([k, v]) => `<option value="${k}" ${k === "consulta" ? "selected" : ""}>${v}</option>`).join("")}</select></label><div style="align-self:end"><button class="btn pri" id="uAdd">Liberar acesso</button></div></div>
+    <p class="small muted" style="margin:0">A pessoa cria a conta no aplicativo com este e-mail e recebe o acesso automaticamente. Administrador: tudo, inclusive usuários. Gestor: cadastra e programa. Consulta: só visualiza.</p>`;
+    box.querySelector("#uAdd").onclick = async () => { try { const r = await q(sb.rpc("adicionar_usuario", { p_empresa: S.emp.id, p_email: box.querySelector("#uEm").value, p_papel: box.querySelector("#uPa").value })); toast(r === "vinculado" ? "Acesso liberado" : "Convite registrado: a pessoa deve criar a conta com esse e-mail"); carregarUsuarios(box); } catch (e) { toast(erroMsg(e), true); } };
+    box.querySelectorAll("[data-rem]").forEach(b => b.onclick = async () => { if (!(await confirmar("Remover o acesso desta pessoa?", "Remover"))) return; try { await q(sb.rpc("remover_usuario", { p_empresa: S.emp.id, p_user: b.dataset.rem })); toast("Acesso removido"); carregarUsuarios(box); } catch (e) { toast(erroMsg(e), true); } });
+    box.querySelectorAll("[data-canc]").forEach(b => b.onclick = async () => { try { await q(sb.rpc("cancelar_convite", { p_empresa: S.emp.id, p_email: b.dataset.canc })); carregarUsuarios(box); } catch (e) { toast(erroMsg(e), true); } });
+  } catch (e) { box.innerHTML = `<div class="msg err">${esc(erroMsg(e))}</div>`; }
+}
+
+// ---------- PAINEL TÉCNICO (desenvolvedor) ----------
+async function vTecnico(el) {
+  if (!S.plataforma) { el.innerHTML = `<div class="msg err">Área restrita.</div>`; return; }
+  el.innerHTML = `<div class="head"><h1>Painel técnico</h1><span class="muted small">Visível só para o desenvolvedor. Mostra números, nunca dados de colaboradores.</span></div><div id="tRes" class="panel">Carregando…</div>
+  <div class="panel list"><h2>Nova empresa cliente</h2><div class="filters"><label class="f" for="tN">Nome<input id="tN"></label><label class="f" for="tC">CNPJ<input id="tC"></label><label class="f" for="tE">E-mail da administradora<input id="tE" type="email"></label><div style="align-self:end"><button class="btn pri" id="tCriar">Criar empresa</button></div></div>
+  <p class="small muted" style="margin:0">Cria a empresa com a estrutura padrão de departamentos. A administradora recebe o acesso ao criar a conta com esse e-mail.</p></div>
+  <div class="panel"><h2>Erros registrados no aplicativo</h2><div id="tErr">Carregando…</div></div>
+  <div class="panel list"><h2>Backups e manutenção</h2><ul class="small"><li>Backup diário automático: Supabase → Database → Backups (plano Pro).</li><li>Atualizar o aplicativo: substituir o index.html publicado; os dados não são afetados.</li><li>Atualizar o banco: rodar o novo schema.sql no SQL Editor (o arquivo pode ser executado de novo sem apagar dados).</li><li>Logs técnicos: Supabase → Logs.</li></ul></div>`;
+  try { const r = await q(sb.rpc("plataforma_resumo"));
+    el.querySelector("#tRes").innerHTML = `<h2>Clientes</h2><div class="scroll"><table><thead><tr><th>Empresa</th><th class="n">Usuários</th><th class="n">Convites</th><th class="n">Colaboradores</th><th class="n">Férias programadas</th><th>Última atividade</th><th></th></tr></thead><tbody>
+    ${r.map(x => `<tr><td><b>${esc(x.nome)}</b></td><td class="n">${x.usuarios}</td><td class="n">${x.convites_pendentes}</td><td class="n">${x.colaboradores}</td><td class="n">${x.programacoes}</td><td>${x.ultima_atividade ? new Date(x.ultima_atividade).toLocaleString("pt-BR") : "—"}</td><td><button class="btn sm" data-inv="${x.empresa_id}">Liberar e-mail</button></td></tr>`).join("") || `<tr><td colspan="7" class="muted">Nenhuma empresa.</td></tr>`}</tbody></table></div>`;
+    el.querySelectorAll("[data-inv]").forEach(b => b.onclick = () => modal(`<h2>Liberar acesso</h2><label class="f" for="iv">E-mail<input id="iv" type="email"></label><label class="f" for="ip">Perfil<select id="ip">${Object.entries(PAPEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label><div class="foot"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="ok">Liberar</button></div>`,
+      (bg, close) => bg.querySelector("#ok").onclick = async () => { try { const s = await q(sb.rpc("adicionar_usuario", { p_empresa: b.dataset.inv, p_email: bg.querySelector("#iv").value, p_papel: bg.querySelector("#ip").value })); close(); toast(s === "vinculado" ? "Acesso liberado" : "Convite registrado"); vTecnico(el); } catch (e) { toast(erroMsg(e), true); } })); }
+  catch (e) { el.querySelector("#tRes").innerHTML = `<div class="msg err">${esc(erroMsg(e))}</div>`; }
+  try { const er = await q(sb.from("erros_app").select("*").order("em", { ascending: false }).limit(30));
+    el.querySelector("#tErr").innerHTML = er.length ? `<div class="scroll"><table><tbody>${er.map(x => `<tr><td class="num">${new Date(x.em).toLocaleString("pt-BR")}</td><td>${esc(x.mensagem)}</td><td class="small muted">${esc(x.pagina || "")}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Nenhum erro registrado.</p>`; }
+  catch (e) { el.querySelector("#tErr").innerHTML = `<div class="msg err">${esc(erroMsg(e))}</div>`; }
+  el.querySelector("#tCriar").onclick = async () => { const n = el.querySelector("#tN").value.trim(); if (n.length < 2) { toast("Informe o nome.", true); return; }
+    try { await q(sb.rpc("plataforma_criar_empresa", { p_nome: n, p_cnpj: el.querySelector("#tC").value, p_email_admin: el.querySelector("#tE").value })); toast("Empresa criada"); await aposLogin(S.user); location.hash = "#/tecnico"; } catch (e) { toast(erroMsg(e), true); } };
+}
+
+iniciar();
+})();
+</script>
+</body>
+</html>
